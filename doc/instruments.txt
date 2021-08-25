@@ -1,0 +1,446 @@
+
+'***************************************************
+' CI500 command set:
+'***************************************************
+' always use vbCrLf after each command
+' kommunicerar i 9600,N,8,1
+'
+'  "TIME      > 0.3  > 0.5   > 1.0   > 5.0   >10.0    >25.0    RH  TEMP  FLOW" & vbCrLf
+'  "--------------------------------------------------------------------------------" & vbCrLf
+' "15/02/07     ID=                     TOTAL COUNT      SAMPLE VOL= 0.1 CF" & vbCrLf
+' "--------------------------------------------------------------------------------" & vbCrLf & Chr(7)
+' Jag har ingen aning om vad : J, K, L, M, O, Q, U och X är
+' dessutom finns troligen en massa specialtecken som !"#%&% etc
+' Synd att jag inte lyckats ställa datum och tid...
+' standard setting: "Z\nG11\nB00\nP0\nI0\nH\nS\n"
+'
+' "A"        dumpar alla mätningar i minnet!
+' "B00"    SAMPLE VOL: 0.01 CF
+' "B01"                0.2 CF
+' "B02"                0.7 CF
+' "B03"                1.0 CF
+' "B04"                2.0 CF
+' "B05"                7.0 CF
+' "B06"               0.01 CM
+' "B07"               0.02 CM
+' "B08"                0.1 CM
+' "B09"                0.2 CM
+' "B10"                1.0 CM
+' "C"      CONCENTRATION IS: CF
+' "D"       döda styrning med knappar på instrument (verkar blippa sig igenom olika inställningar)
+' "E"       tillåt styrning med knappar på instrument (verkar stanna blippning igenom olika inställningar)
+' "F"        dumpar senaste ett mätdata
+' "G00"    NUMBER OF SAMPLES:  1
+' "G01"                        1
+' "G02"                        2
+' "G03"                        3
+' "G04"                        4
+' "G05"                        5
+' "G06"                        6
+' "G07"                        7
+' "G08"                        8
+' "G09"                        9
+' "G10"                       10
+' "G11"                       INF
+' "H"      CONCENTRATION IS: CM
+' "I0"            INITIAL DELAY: 1 SEC
+' "I1"                           1 MIN
+' "I2"                          15 SEC
+' "I3"                           5 MIN
+' "N"       echo off - sluta eka tecken tillbaka
+' "P"       ställer skärmen i skräpläge
+' "P0"            DELAY:        NO DELAY
+' "P1"                           1 SEC
+' "P2"                          15 SEC
+' "P3"                           1 MIN
+' "P4"                          15 MIN
+' "P5"                          30 MIN
+' "P6"                          60 MIN
+' "R"        echo on - returnera tecken
+' "S"        startar mätning
+' "T"        stannar mätning
+' "V"        startar ventilation
+' "W"        stannar ventilation
+' "Y"        visar enhetsinformation
+' "Z"        ta bort alla mätdata från minnet
+' Enligt ovanstående specialsträng för start:
+' RP0I0G11B00
+
+'***************************************************
+' DUSTTRAK Command set
+'**************************************************
+' speed=1200
+' always use vbCrLf after each command
+'
+' "ASPOLL" & Trim(Str(Round(Rnd * 999))) & "." & Trim(Str(Round(Rnd * 999)))
+'
+' QLMODL  +chr(13)+chr(10)          check what model it is... the answer is "QLMODL8520"
+' PLBAUD1200  +chr(13)+chr(10)      ställer in baudhastighet.... ekat tillbaka...
+' PLBAUD9600  +chr(13)+chr(10)      ställer in baudhastighet.... ekat tillbaka...
+' QLPMEM      +chr(13)+chr(10)      check memory  ..... answer QLPMEM97 = available memory 97%
+' PLDATE02/22/07  +chr(13)+chr(10)  ställer datum
+' PLTIME13:08:32  +chr(13)+chr(10)  ställer klockan
+'
+'***************************************************
+' PTrak Command set
+'***************************************************
+'
+' "QLCONC" & Trim(Str(Round(Rnd * 2000)))
+'
+' always use vbCrLf after each command
+' kommunicerar i 9600,N,8,1
+'
+' QLAMBP      ???       visar QLAMBP0.27
+' QLBACK                talar om hur backlight är satt
+' QLBGND
+' QLCONC                visar nuvarande värde
+' QLDATE                vilket datum .... "QLDATE02/21/07"
+' QLDATM                visar QLDATM02/02
+' QLDIFP                visar QLDIFP0.50
+' QLDISP                dödar display och börjar räkna om, eller något annat
+' QLFREE                kollar ledigt minne
+' QLLANG                svarar QLLANG0
+' QLLINT01              frågar om intervall 01 svar ges i sekunder
+' QLLINT02              exempelvis om intervallet är 1 sekund fås "QLLINT011"
+' QLLINT03              minsta intervallet är 1 sekund.
+' QLLINT04              största intervallet är 3599
+' QLLINT05              svarar "QLLINT051800" då intervallet är 30:00 minuter.
+' QLLOGN                svarar QLLOGN24
+' QLLSRI                svarar QLLSRI0.049
+' QLMODL                check what model it is... the answer is "QLMODL8525"
+' QLNSDP                svarar med QLNSDP2
+' QLNTST                svarar QLNTST6
+' QLPMEM                kollar minne..... answer QLPMEM97 = available memory 97%
+' QLPMPI      ???          visar QLPMPI.025
+' QLSERV                svarar när senast service gjordes MM/DD/YY
+' QLTEST                svarar med TEST4
+' QLTIME                vilken tid.....   "QLTIME20:57:00"
+' PLTIME19:12:00        ställer klockan till 19:00:00
+' PLDATE02/21/07        ställer datum till MM/DD/YY
+' PLLINT01              ställer in intervallet i sekunder
+' PLLINT02              exempelvis om intervallet är 1 sekund skrivs "PLLINT011"
+' PLLINT03              minsta intervallet är 1 sekund.
+' PLLINT04              största intervallet är 3599
+' PLLINT05              svarar "PLLINT051800" då när man ställt 30:00 minuter.
+' PLBACK000             ställer in bakgrundsljus till 00 (inget)
+' PLBACK005             ställer bakgrundsljus till 5 sekunder
+' PLBACK010             ställer bakgrundsljus till 10 sekunder
+' PLBACK030             ställer bakgrundsljus till 30 sekunder
+' PLSERV                ställer om servicedatum MM/DD/YY
+'
+'
+'
+'***************************************************
+' AeroTrak command set:
+'***************************************************
+' no command set!!!!
+' AeroTrak uses 1200bps
+'
+'***************************************************
+' Planned functionality
+'***************************************************
+' 1) Probe command ports and find all devices and assign command ports automatically
+
+
+'Logarithm chart code:
+'    If thetable = "AeroTrak" And thefield = "0_03" Then
+'        sq = "SELECT  MID(T_stamp,15,5), " & " LOG([0_03]), LOG([03_05]), LOG([05_1]), LOG([1_3]), LOG([3_5]), LOG([5_10]) FROM (SELECT TOP " & toprecords & " * FROM tbl" & thetable & " ORDER BY id DESC) ORDER BY id ASC"
+'    Else
+'        Exit Sub
+'    End If
+
+'***************************************************
+' VP10 command set:
+'***************************************************
+' always use vbCrLf after each command
+' kommunicerar i 9600,N,8,1
+'
+'  "TIME      > 0.3  > 0.5   > 1.0   > 5.0   >10.0    >25.0    RH  TEMP  FLOW" & vbCrLf
+'  "--------------------------------------------------------------------------------" & vbCrLf
+' "15/02/07     ID=                     TOTAL COUNT      SAMPLE VOL= 0.1 CF" & vbCrLf
+' "--------------------------------------------------------------------------------" & vbCrLf & Chr(7)
+' Jag har ingen aning om vad : J, K, L, M, O, Q, U och X är
+' dessutom finns troligen en massa specialtecken som !"#%&% etc
+' Synd att jag inte lyckats ställa datum och tid...
+'
+' "A"        dumpar alla mätningar i minnet!
+' "B00"    SAMPLE VOL: 0.01 CF (DEFAULT!)
+' "B01"                0.02 CF
+' "B02"                0.1 CF
+' "B03"                0.2 CF
+' "B04"                0.7 CF
+' "B05"                1.0 CF
+' "B06"                2.0 CF
+' "B07"                7.0 CF
+' "B08"                10.0 CF
+' "B09"                0.001 CM
+' "B10"                0.002 CM
+' "C"      CONCENTRATION IS: CF Cubic Foot count mode
+' "D"       döda styrning med knappar på instrument (verkar blippa sig igenom olika inställningar)
+' "E"       tillåt styrning med knappar på instrument (verkar stanna blippning igenom olika inställningar)
+' "F"        dumpar senaste ett mätdata
+' "G00"    NUMBER OF SAMPLES:  1
+' "G01"                        1
+' "G02"                        2
+' "G03"                        3
+' "G04"                        4
+' "G05"                        5
+' "G06"                        6
+' "G07"                        7
+' "G08"                        8
+' "G09"                        9
+' "G10"                       10
+' "G11"                       INF
+' "H"      CONCENTRATION IS: CM Cubic meter count mode (DEFAULT)
+' "I0"            INITIAL DELAY: 1 SEC
+' "I1"                           1 MIN
+' "I2"                          15 SEC
+' "I3"                           5 MIN
+' "N"       echo off - sluta eka tecken tillbaka
+' "P"       ställer skärmen i skräpläge
+' "P0"            DELAY:        NO DELAY
+' "P1"                           1 SEC
+' "P2"                          15 SEC
+' "P3"                           1 MIN
+' "P4"                          15 MIN
+' "P5"                          30 MIN
+' "P6"                          60 MIN
+' "R"        echo on - returnera tecken
+' "S"        startar mätning
+' "T"        stannar mätning
+' "V"        startar ventilation
+' "W"        stannar ventilation
+' "Y"        visar enhetsinformation
+' "Z"        ta bort alla mätdata från minnet
+' Enligt ovanstående specialsträng för start:
+' RP0I0G11B00
+
+'***************************************************
+' AirImage AI3-SA command set:
+'***************************************************
+Overvue of AT commands for WaveCom Modem
+
+Normal AT commands:
+at+wopen=0		//Stop the program in the modem
+at+wdwl    		//Enable the loading the program into the modem
+at+cfun=1  		//Restart Modem
+at+wopen=1 		//Restart Program
+AT+CCLK="07/12/19,15:37:00" 	//Set the date and time in the Modem
+AT+CCLK?				//Ask the actual date and time
+Special AT commands:
+AT+BAPN="internet.vodafone.net"," "," "    	//Set APN
+AT+BAPN="internet.telenor.se"," "," "          	//Set APN
+AT+BAPN?						//Ask the actual APN
+AT+ZSENSID="AI352011" 	//Set the Zigbee ID code
+AT+ZSENSID?           		//Ask the actual Zigbee ID
+AT+BCALSET=1209,101		//Set the value of EMF_Cal_mV and Gain_Cal
+AT+BCALSET?		//Ask the actual value of EMF_Cal_mV and Gain_Cal
+Display mode commands
+AT+BLCDSET=0		//Text Mode
+AT+BLCDSET=1		//Graphic GSM signal level and battery voltage
+AT+BLCDSET=2		//Test row writing in the 7th row
+AT+BLCDSET=3		//Normal graphic mode
+AT+BLCDSET?		//Ask the actual display mode
+During the normal operation at the beginning the program using the “Text mode” (as a HyperTerminal) and after the setting parameters the program switch over the 3rd mode. When we give out the command, the parameter has writing into the flash of Modem. If we want to change the display mode there is two possibilities:
+1/ give out the other parameter setting commands via Hyper Terminal
+2/ make a program DOTA and the parameter set back the normal mode.
+
+RS232 communication using HyperTerminal with ZigBee
+(We can give out these commands with help of HyperTerminal trough Zigbee serial port) 
+Display mode commands
+BZ_MLCD=0000		//Text Mode
+BZ_MLCD=0001		//Graphic GSM signal level and battery voltage
+BZ_MLCD=0002		//Test row writing in the 7th row
+BZ_MLCD=0003		//Normal graphic mode
+
+'***************************************************
+' AeroTrak TCP command set:
+'***************************************************
+' There is a complete documentation from TSI with TSI Modbus codes!!!!!
+'
+' DOKUMENTATION BASED ON Simply Modbus program:
+' Bytes for call:
+' 1: 
+' 2: line sent number - disregqarded by AT
+' 3: disregarded (00)
+' 4: disregarded (00)
+' 5: disregarded (00)
+' 6: length byte: can be 6 or 7 depending on ID of slave
+' 7: slave id byte 1
+' (7.5: slave byte 2)
+' 8: function code
+' 9-10: minus offset byte 1 and 2. FF 01 means minus offset 256
+
+' 0x03 Read Holding Registers
+' 3 0 0 0 66 - information om serienr och modell
+' svar HEX: 00 00 00 00 00 87 00 03 84 00 C8 00 64 33 39 36 30 56 2D 00 32 00 00 00 00 00 00 00 00 33 39 36 30 30 31 38 33 30 30 00 36 00 00 00 00 00 00 00 00 00 00 00 00 00 00 07 DA 00 09 00 15 07 DA 00 09 00 15 07 DB 00 09 00 15 00 0A 00 06 66 71 01 2C 01 F4 03 E8 0B B8 13 88 27 10 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 30 20 00 1F 49 00 00 27 10 00 00 00 00 00 03 00 00 00 FA 00 0A 00 64 00 0A
+' svar DEC: 0,0,0,0,0,135,0,3,132,0,200,0,100,51,57,54,48,86,45,0,50,0,0,0,0,0,0,0,0,51,57,54,48,48,49,56,51,48,48,0,54,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,218,0,9,0,21,7,218,0,9,0,21,7,219,0,9,0,21,0,10,0,6,102,113,1,44,1,244,3,232,11,184,19,136,39,16,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,48,32,0,31,73,0,0,39,16,0,0,0,0,0,3,0,0,0,250,0,10,0,100,0,10,0
+' TEXT: ‡„Èd3960V-239600183006ÚÚÛfq,ôè¸ˆ'0 I'úd eller som varannanbytesvariant: ...9306V2-93061038006
+' här syns "varannatbytesvarianten!"
+' byte för serienrsträngen: 
+' 00 00 00 00 00 06 00 03 08 00 00 4A - ?????
+' svar HEX: 00 00 00 00 00 97 00 03 94 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01 2C 01 F4 03 E8 0B B8 13 88 27 10 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+' svar DEX: 0,0,0,0,0,151,0,3,148,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,44,1,244,3,232,11,184,19,136,39,16,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+
+' 3 4 0 0 87 - information om inställning
+' svar HEX: 00 00 00 00 00 B1 00 03 AE 00 00 03 E8 00 00 03 E8 00 00 03 E8 00 00 03 E8 00 00 03 E8 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 02 00 03 00 04 00 06 00 0A 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 03 00 00 00 00 C0 A8 01 7A FF FF FF 00 C0 A8 01 FE 00 00 00 00 01 2C 01 F4 03 E8 0B B8 13 88 27 10 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 01 
+' svar DEC: 0,0,0,0,0,177,0,3,174,0,0,3,232,0,0,3,232,0,0,3,232,0,0,3,232,0,0,3,232,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,0,3,0,4,0,6,0,10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,0,0,0,192,168,1,122,255,255,255,0,192,168,1,254,0,0,0,0,1,44,1,244,3,232,11,184,19,136,39,16,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1
+
+' ANALYS:
+' 120: Location (nummer för inställd plats)
+' 122: Measurement (numret för inställd mätning)
+' 125-128: IP-numret för enheten
+' 70: Count Mode  (Automatic, Manual, Beep)
+'
+
+' 3 0 0 0 6 = Model 
+' 3 0 8 0 12 = Serial number
+' 3 0 21 0 5 = Manufacture Date
+' 3 0 24 0 5 = Last Calibration Date
+' 3 0 27 0 5 = Calibration Due
+' 3 0 32 0 3 = Firmware version (lite udda kodat - 10 0 6 102*256+113
+' 3 0 35 0 6 = 1 44 1 244 3 232 11 184 19 136 39 16 0 
+'               = 1*256+33=300, 1*256+244=500, 11*256+184=3000, 19*256+184=5000, 39*256+16=10000
+' 3 3 254 0 20 = Alarms, 3 bytes each...?!
+' 3 4 30 0 1 = Count Mode
+' 3 4 55 0 1 = Location
+' 3 4 56 0 1 = GetReciepe
+' 3 4 58 0 2 = IP Address
+' 3 4 60 0 2 = Subnet Mask
+' 3 4 62 0 2 = Default Gateway
+' 3 7 214 0 3 = Date= YearLow+YearHight*256 0 Month 0 Date
+' 3 7 217 0 3 = Time = Hour 0 Minutes 0 Seconds
+' 3 0 35 0 6 = 
+' 0x03 Read Input Registers
+' 3 7 208 0 122
+' GIVES 253 BYTES!!!! Bytes according to:
+' 29: hour
+' 31: minute
+' 33: second
+'Function atcalc(ByVal v1 As Decimal, ByVal v2 As Decimal) As Long
+'Const mult1 As Decimal = 4240.2845
+'Const perc As Decimal = 0.9999997
+'
+'    Return Math.Round((v1 * 256 * mult1 + v2 * mult1) * perc, 0)
+'End Function
+'                "0.3: " & CStr(atcalc(Val(myDec(Split(laststringreceived, " ")(61))), Val(myDec(Split(laststringreceived, " ")(62))))) & vbCrLf & _
+'                "0.5: " & CStr(atcalc(Val(myDec(Split(laststringreceived, " ")(65))), Val(myDec(Split(laststringreceived, " ")(66))))) & vbCrLf & _
+'                "1.0: " & CStr(atcalc(Val(myDec(Split(laststringreceived, " ")(69))), Val(myDec(Split(laststringreceived, " ")(70))))) & vbCrLf & _
+'                "3.0: " & CStr(atcalc(Val(myDec(Split(laststringreceived, " ")(73))), Val(myDec(Split(laststringreceived, " ")(74))))) & vbCrLf & _
+'                "5.0: " & CStr(atcalc(Val(myDec(Split(laststringreceived, " ")(77))), Val(myDec(Split(laststringreceived, " ")(78))))) & vbCrLf & _
+'               "10.0: " & CStr(atcalc(Val(myDec(Split(laststringreceived, " ")(81))), Val(myDec(Split(laststringreceived, " ")(82)))))
+
+
+' 0x06 Write Single Register
+' 6 4 55 0 3  - ställ Location till "3"
+' 6 4 56 0 3  - ställ Recepie till "3"
+'
+' 0x07 Read Exception status
+'
+''***************************************************
+' DustTrak II command set:
+'***************************************************
+' uses TCP/IP
+'
+' Send commands, end commands with CRLf
+'
+' MSTART
+' starts measuring
+'
+' MSTOP
+' stops measuring
+'
+' MSTATUS
+' shows instrument status
+'
+' RDMN
+' Read ModelNumber - should answer "8530"
+'
+' RDSN
+' Read SerialNumber - should answer 10digits text-number
+'
+' RSDATETIME
+' Read instrument Date and Time setting. Answers in format "01/18/2011,11:44:00"
+' 
+' WSDATETIME 01/18/2011,11:44:00
+' Set instrument DateTime to "01/18/2011,11:44:00"
+' 
+' RMODECURLOG
+' Read Current used "RunMode"
+' RunMode 0 = SURVEY
+' RunMode 1 = MANUAL
+' RunMode 2 = TEST 1...
+'
+' WMODECURLOG0
+' Set Current Log mode 0..6
+'
+' RMODELOG0
+' Read settings for RunMode 0
+' answer: 0:0:0,0/0/0,0:0,0:0:0,3,0:0:0,1,
+' meaning: StartTime,StartDate,LogInterval,TestLength,NumberOfTests,TimeBetweenTests,
+'			TimeConstant,AutoZeroEnableInterval,AutoZeroEnableCheckbox,
+'			PercentTotalMemoryRequired,RunModeName
+'
+' MUPDATE
+' Updates the display on the DustTrak, after for example changing the RunMode
+' 
+' RMMESSAGES
+' Shows various settings, like batteryleft%, etc.
+'
+' RDDATANUMTESTS
+' Reads the count and number for all saved tests in DustTrak II
+' answer: 4,1,2,4,7 means 4 tests in memmory, that can be referred to using the numbers
+'  
+' RDDATATEST1
+' Read specifications for test 1, Answers with:
+'	InstrumentName,InstrumentModelNumber,InstrumentSerialNumber,?,CalDate?,
+'	TestName,TestTime,TestDate,,,,...
+'	
+' RDDATASAMPLE 3,1
+' Read data from test 3, sample 1, answer:
+'	SampleNumber,value(decimalseparated),,
+
+
+' IQM60
+' you have to send&receive full 0xFF bytes!!!
+'
+' some commands consist of 4 bytes, where 
+' first is command, second is id, third is command setting 
+' and fourth is checksum. Checksum is calculated by 256-(sum of first 3 bytes)
+' (if Checksum is negative, then checksum =512-(sum of first 3 bytes))
+'
+' To test communications and check for Instrument
+' 85 1 251 17
+' response contains text ID, INFObyte, VERSIONbyte and NAME "IQM60" and realtimeclock
+'
+' sensor sample data request command:
+' 85 1 48 122 = Request O3 values
+' 85 1 80 90 = Request NO2 values
+' 85 1 246 180 = Request Temp values
+' 85 1 248 178 = Request RH values
+' to get all above values: 85 1 48 122 85 1 80 90 85 1 246 180 85 1 248 178
+' 
+' result comes in form: 4-byte float little endian IEEE-754
+'
+'***************************************************
+' DI-145 command set:
+'***************************************************
+' DI-145 is a serial device that is controlled with special
+' commands
+0x4E5A NZ Returns the DI-145's serial # 0x4339 C9 Enable channels 1 and 4
+0x4331 C1 Enable channel 1 
+0x433A C: Enable channels 2 and 4
+0x4332 C2 Enable channel 2 
+0x433B C; Enable channels 1, 2, and 4
+0x4333 C3 Enable channels 1 and 2 
+0x433C C< Enable channels 3 and 4
+0x4334 C4 Enable channel 3 
+0x433D C= Enable channels 1, 3, and 4
+0x4335 C5 Enable channels 1 and 3 
+0x433E C> Enable channels 2, 3, and 4
+0x4336 C6 Enable channels 2 and 3 
+0x433F C? Enable channels 1, 2, 3, and 4
+0x4337 C7 Enable channels 1, 2, and 3 
+0x5331 S1 Start data acquisition
+0x4338 C8 Enable channel 4 
+0x5330 S0 Stop data acquisition

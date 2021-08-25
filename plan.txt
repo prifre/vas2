@@ -1,0 +1,18 @@
+Version 0.28
+TODO:
+    ADD ALL COPYRIGHT STUFF!!!!
+	setting to add possibility to specify periods for Saving of Capture (currently once/hour)
+    add TIME-zone
+    fix Excel time style 
+    save individual charts as image
+    specify frequency of upload/export
+    export of graph for whole measurement
+    pruning - removal of data based on too much data is not necessary. see AIRP
+    split measurements into days??
+    add network stuff:
+        network settings:
+            possibility to send emails
+            ftp upload of txt-files
+            ftp upload of image files
+    database
+        upload of data to external SQL-database

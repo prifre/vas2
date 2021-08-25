@@ -1,0 +1,64 @@
+''***************************************************
+' DustTrak II command set:
+'***************************************************
+' uses TCP/IP
+'
+' Send commands, end commands with CRLf
+'
+' MSTART
+' starts measuring
+'
+' MSTOP
+' stops measuring
+'
+' MSTATUS
+' shows instrument status
+'
+' RDMN
+' Read ModelNumber - should answer "8530"
+'
+' RDSN
+' Read SerialNumber - should answer 10digits text-number
+'
+' RSDATETIME
+' Read instrument Date and Time setting. Answers in format "01/18/2011,11:44:00"
+' 
+' WSDATETIME 01/18/2011,11:44:00
+' Set instrument DateTime to "01/18/2011,11:44:00"
+' 
+' RMODECURLOG
+' Read Current used "RunMode"
+' RunMode 0 = SURVEY
+' RunMode 1 = MANUAL
+' RunMode 2 = TEST 1...
+'
+' WMODECURLOG0
+' Set Current Log mode 0..6
+'
+' RMODELOG0
+' Read settings for RunMode 0
+' answer: 0:0:0,0/0/0,0:0,0:0:0,3,0:0:0,1,
+' meaning: StartTime,StartDate,LogInterval,TestLength,NumberOfTests,TimeBetweenTests,
+'			TimeConstant,AutoZeroEnableInterval,AutoZeroEnableCheckbox,
+'			PercentTotalMemoryRequired,RunModeName
+'
+' MUPDATE
+' Updates the display on the DustTrak, after for example changing the RunMode
+' 
+' RMMESSAGES
+' Shows various settings, like batteryleft%, etc.
+'
+' RDDATANUMTESTS
+' Reads the count and number for all saved tests in DustTrak II
+' answer: 4,1,2,4,7 means 4 tests in memmory, that can be referred to using the numbers
+'  
+' RDDATATEST1
+' Read specifications for test 1, Answers with:
+'	InstrumentName,InstrumentModelNumber,InstrumentSerialNumber,?,CalDate?,
+'	TestName,TestTime,TestDate,,,,...
+'	
+' RDDATASAMPLE 3,1
+' Read data from test 3, sample 1, answer:
+'	SampleNumber,value(decimalseparated),,
+
+
