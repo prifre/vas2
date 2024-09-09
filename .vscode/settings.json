@@ -1,0 +1,5 @@
+{
+    "debug.showInlineBreakpointCandidates": false,
+    "testing.followRunningTest": false,
+    "debug.inlineValues": false
+}
