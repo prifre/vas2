@@ -23,7 +23,7 @@ func Fixtime(t string) string {
 	return s
 }
 
-func (db *dbtype) Exporttoexcel(nanostamp string, fn string) {
+func (db *DBtype) Exporttoexcel(nanostamp string, fn string) {
 	var mname, n1, d1, t1 []string
 	var err error
 	var v int

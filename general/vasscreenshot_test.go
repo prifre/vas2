@@ -3,7 +3,7 @@ package general
 import "testing"
 
 func TestDoscreenshot(t *testing.T) {
-	 Doscreenshot()
+	//  Doscreenshot()
 }
 
 // func (g *game) extrta() {

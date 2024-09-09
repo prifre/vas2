@@ -25,7 +25,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-type dbtype struct {
+type DBtype struct {
 	conn         *sql.DB
 	statement    *sql.Stmt
 	reply        sql.Result
@@ -35,16 +35,15 @@ type dbtype struct {
 	nanostamp int64
 	note      string
 	mdata     [8]int32
-	dbstart   time.Time
 }
 
 // add measurement, based on table and data as []int32
-func (db *dbtype) Addmeasurement() error {
+func (db *DBtype) Addmeasurement() error {
 	// var statement *sqlite3.Stmt
 	// var result sqlite3.Result
 	var sq []string
 	var err error
-	err = db.opendb()
+	err = db.Opendb()
 	if err != nil {
 		return errors.New(fmt.Sprintln("#1 AddMeasurement: ", err.Error()))
 	}
@@ -70,7 +69,7 @@ func (db *dbtype) Addmeasurement() error {
 		}
 
 	}
-	err = db.opendb()
+	err = db.Opendb()
 	//	db.conn.BusyTimeout(time.Second)
 	if err != nil {
 		return errors.New(fmt.Sprintln("#3 AddMeasurement: New opening2", err.Error()))
@@ -88,11 +87,11 @@ func (db *dbtype) Addmeasurement() error {
 	}
 	return err
 }
-func (db *dbtype) Setupdb() error {
+func (db *DBtype) Setupdb() error {
 	var err error
 	fname := fyne.CurrentApp().Preferences().String("dbfilename")
 	if _, err = os.Stat(fname); err == nil {
-		err = db.opendb()
+		err = db.Opendb()
 		if err != nil {
 			log.Println("#1 setupdb Failed to open db '"+fname+"'", db.conn)
 			return err
@@ -106,14 +105,14 @@ func (db *dbtype) Setupdb() error {
 			return err
 		}
 		file.Close()
-		err = db.createtables() // Create Database Tables
+		err = db.Createtables() // Create Database Tables
 		if err != nil {
 			log.Println("#4 Could not create tables!", err.Error())
 			return err
 		} else {
 			log.Println("VAS database tables created")
 		}
-		err = db.opendb()
+		err = db.Opendb()
 		if err != nil {
 			log.Println("#5 setupdb Failed to open db", db.conn)
 			return err
@@ -121,11 +120,11 @@ func (db *dbtype) Setupdb() error {
 	}
 	return err
 }
-func (db *dbtype) Closemeasurement() error {
+func (db *DBtype) Closemeasurement() error {
 	var sq string
 	var err error
 	sq = fmt.Sprintf("UPDATE tblMain SET tend='%v' WHERE nanostamp=%v", fmt.Sprintf("%v", time.Now().Format(time.RFC3339)), db.nanostamp)
-	err = db.opendb()
+	err = db.Opendb()
 	if err != nil {
 		log.Println("#1 Closemeasurement open Failed", err.Error())
 		return err
@@ -144,11 +143,11 @@ func (db *dbtype) Closemeasurement() error {
 	db.conn = nil
 	return err
 }
-func (db *dbtype) createtables() error {
+func (db *DBtype) Createtables() error {
 	var err error
 	var sq []string
 
-	err = db.opendb()
+	err = db.Opendb()
 	if err != nil {
 		log.Println("#1 CreateTables failed opendb: ", err.Error())
 		return err
@@ -184,7 +183,7 @@ func (db *dbtype) createtables() error {
 	}
 	return err
 }
-func (db *dbtype) opendb() error {
+func (db *DBtype) Opendb() error {
 	var err error
 	// var temp fyne.URI
 	if db.conn != nil {
@@ -201,7 +200,7 @@ func (db *dbtype) opendb() error {
 	db.conn.SetConnMaxLifetime(time.Hour * 2)
 	return err
 }
-func (db *dbtype) Exporttotext() (string, error) {
+func (db *DBtype) Exporttotext() (string, error) {
 	var tbl []string = []string{"tblAeroTrak", "tblDustTrak", "tblPTrak", "tblMain"}
 	var err error
 	var id int
@@ -213,7 +212,7 @@ func (db *dbtype) Exporttotext() (string, error) {
 	var f *os.File
 	var s []string
 	dir := fyne.CurrentApp().Preferences().String("homedir")
-	err = db.opendb()
+	err = db.Opendb()
 	if err != nil {
 		log.Println("#1 Exporttotext open Failed", err.Error())
 		return "", err
@@ -310,7 +309,7 @@ func (db *dbtype) Exporttotext() (string, error) {
 	}
 	return msg, err
 }
-func (db *dbtype) Exportonetotext() (string, error) {
+func (db *DBtype) Exportonetotext() (string, error) {
 	var err error
 	var id int
 	var cnt []string
@@ -325,7 +324,7 @@ func (db *dbtype) Exportonetotext() (string, error) {
 	if db.nanostamp == 0 {
 		return "No current measurement, no data exported.", err
 	}
-	err = db.opendb()
+	err = db.Opendb()
 	if err != nil {
 		log.Println("#1 Exporttotext open Failed", err.Error())
 		return "", err
@@ -424,12 +423,12 @@ func (db *dbtype) Exportonetotext() (string, error) {
 }
 
 // get one value from database quickly...
-func (db *dbtype) Getsql(sq string) ([]string, error) {
+func (db *DBtype) Getsql(sq string) ([]string, error) {
 	var err error
 	var k []string
 	var s sql.NullString
 	var s2 string
-	err = db.opendb()
+	err = db.Opendb()
 	if err != nil {
 		log.Println("#1 Getsql opendb error: ", err.Error())
 		return nil, err
@@ -483,11 +482,11 @@ func (db *dbtype) Getsql(sq string) ([]string, error) {
 	return k, err
 }
 
-func (db *dbtype) deleteall(n string) error {
+func (db *DBtype) deleteall(n string) error {
 	var err error
 	var sq []string
 	// remove from database
-	err = db.opendb()
+	err = db.Opendb()
 	if err != nil {
 		log.Println("#1 deleteall open Failed", err.Error())
 	}
@@ -509,11 +508,11 @@ func (db *dbtype) deleteall(n string) error {
 	}
 	return err
 }
-func (db *dbtype) updatedetails(nanostamp string, mname string) string {
+func (db *DBtype) updatedetails(nanostamp string, mname string) string {
 	var n1 []string
 	var err error
 	var d string
-	db.opendb()
+	db.Opendb()
 	d = fmt.Sprintf("Measurement name: %v", mname)
 	if n1, err = db.Getsql("SELECT tstamp FROM tblMain WHERE nanostamp=" + nanostamp); err != nil {
 		log.Println("#1 updatedetails SELECT ", err.Error())
@@ -558,7 +557,7 @@ func (db *dbtype) updatedetails(nanostamp string, mname string) string {
 	return d
 }
 
-func (db *dbtype) Pruning() error {
+func (db *DBtype) Pruning() error {
 	// Values can be saved per 5 seconds, 10 seconds or per minute...
 	// count datapoints for the measurement
 	var tbl []string = []string{"tblAeroTrak", "tblDustTrak", "tblPTrak", "tblMain"}

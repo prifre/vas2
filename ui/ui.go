@@ -18,11 +18,12 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"vas/general"
+	"vas/vasdatabase"
 
 	"time"
 
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/driver/desktop"
@@ -62,27 +63,21 @@ type game struct {
 	chartSize             fyne.Size
 	countunits            int32
 	averagepoints         int
-	retries               int
+	retries               int	
 }
 
-var instruments = [3]string{"PTrak", "DustTrak", "AeroTrak"}
 var tbl []string = []string{"tblAeroTrak", "tblDustTrak", "tblPTrak", "tblMain"}
 var g game
 
 // Create will stitch together all ui components
-func Create(window fyne.Window) *container.AppTabs {
+func Create(window fyne.Window) *fyne.Window {
 	Setupfiles()
 	//	os.Setenv("FYNE_SCALE", "1.0")
 	//	var g game = *newGame(&[8]LineChart{})
-	g = *new(game)
-	g.app = app.NewWithID("visible.air.system")
-	g.window = g.app.NewWindow("Visible Air System")
 	g.window.SetMaster()
 	g.window.SetMainMenu(g.buildMenu())
 	g.addkeyshortcuts()
 	g.window.Canvas().SetOnTypedRune(g.typedRune)
-	g.d = new(dbtype)
-	g.f1 = new(ftptype)
 	g.MyDebug = fyne.CurrentApp().Preferences().BoolWithFallback("mydebug", true)
 	w := fyne.CurrentApp().Preferences().FloatWithFallback("winWidth", 1024)
 	h := fyne.CurrentApp().Preferences().FloatWithFallback("winHeight", 768)
@@ -100,9 +95,8 @@ func Create(window fyne.Window) *container.AppTabs {
 	g.averagepoints = fyne.CurrentApp().Preferences().IntWithFallback("averagepoints", 30)
 	g.synchronizedmeasuring = fyne.CurrentApp().Preferences().BoolWithFallback("synchronizedmeasuring", true)
 	g.autostartmeasuring = fyne.CurrentApp().Preferences().BoolWithFallback("autostartmeasuring", true)
-	g.d.nanostamp = Getint64(fyne.CurrentApp().Preferences().StringWithFallback("nanostamp", "0"))
 	g.setuplogging()
-	g.d.Setupdb(&g)
+	new(vasdatabase.DBtype).Setupdb()
 	g.start = time.Now()
 	log.Printf("Program started %v", g.start)
 	g.window.SetCloseIntercept(func() {
@@ -111,12 +105,12 @@ func Create(window fyne.Window) *container.AppTabs {
 	g.window.CenterOnScreen()
 	g.showlogo()
 	if g.autostartmeasuring {
-		log.Printf("Autostart active, starting %v", g.d.nanostamp)
+		log.Printf("Autostart active, starting %v",time.Now().UnixNano())
 		g.StartMeasurement()
 	} else {
 		g.StopMeasurement()
 	}
-	g.window.ShowAndRun()
+	return &g.window
 }
 
 func (g *game) Measure() {
@@ -127,23 +121,14 @@ func (g *game) Measure() {
 		if g.endmeasuring {
 			break
 		}
-		// if g.winSize.Width != g.window.Canvas().Size().Width ||
-		// 	g.winSize.Height != g.window.Canvas().Size().Height {
-		// 	fmt.Println("befdrawCharts")
-		// 	g.Redrawcharts()
-		// 	fmt.Println("aftdrawCharts")
-		// 	g.windowResize()
-		// 	g.winSize.Width = g.window.Canvas().Size().Width
-		// 	g.winSize.Height = g.window.Canvas().Size().Height
-		// }
 		if g.getData() && !g.paused {
 			g.recordcount = g.recordcount + 1
 			r := runtime.NumGoroutine()
-			err = g.d.Addmeasurement()
+			err = new(vasdatabase.DBtype).Addmeasurement()
 			if err != nil {
 				log.Println("#1 database error: ", err.Error())
 			}
-			err = g.Updatecharts()
+			err = Updatecharts()
 			if err != nil {
 				log.Println("#2 Updatecharts error: ", err.Error())
 			}
@@ -165,7 +150,7 @@ func (g *game) Measure() {
 						g.Doftp(fn)
 					}
 				}
-				fn = g.Doscreenshot()
+				fn = general.Doscreenshot(g.window)
 				if fn > "" {
 					g.Doftp(fn)
 				}
@@ -815,9 +800,10 @@ func (g *game) Doftp(fn string) {
 	var err error
 	var content []byte
 	var buf *bytes.Buffer
-	g.f1.ftpserver = fyne.CurrentApp().Preferences().StringWithFallback("ftpserver", "")
-	g.f1.ftpusername = fyne.CurrentApp().Preferences().StringWithFallback("ftpusername", "")
-	g.f1.ftppassword = fyne.CurrentApp().Preferences().StringWithFallback("ftppassword", "")
+	f1:=new(vasftp.ftptype)
+	f1.ftpserver = fyne.CurrentApp().Preferences().StringWithFallback("ftpserver", "")
+	f1.ftpusername = fyne.CurrentApp().Preferences().StringWithFallback("ftpusername", "")
+	f1.ftppassword = fyne.CurrentApp().Preferences().StringWithFallback("ftppassword", "")
 	g.f1.ftpdir = fyne.CurrentApp().Preferences().StringWithFallback("ftpdir", "")
 	if len(g.f1.ftpserver) == 0 || len(g.f1.ftpusername) == 0 || len(g.f1.ftpserver) == 0 {
 		return

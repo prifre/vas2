@@ -12,6 +12,7 @@ import (
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
+	"github.com/prifre/vas2/instruments"
 	"golang.org/x/image/colornames"
 )
 
@@ -293,16 +294,16 @@ func DoManualSettings(g *game) error {
 		f1e3.SetText("")
 	})
 	f2b1 := widget.NewButton("Info", func() {
-		port= fyne.CurrentApp().Preferences().StringWithFallback("AeroTrak", "")
-		r, _ := new(instruments).ModbusAeroTrakgetinfo(port)
+		port:= fyne.CurrentApp().Preferences().StringWithFallback("AeroTrak", "")
+		r, _ := instruments.ModbusAeroTrakgetinfo(port)
 		dialog.ShowInformation("AeroTrak info", r, msettings)
 	})
 	f2b2 := widget.NewButton("Info", func() {
-		g.dt.DustTrakport = fyne.CurrentApp().Preferences().StringWithFallback("DustTrak", "")
-		dialog.ShowInformation("DustTrak info", g.dt.GetDustTrakinfo(), msettings)
+		instruments.DustTrakport = fyne.CurrentApp().Preferences().StringWithFallback("DustTrak", "")
+		dialog.ShowInformation("DustTrak info", instruments.GetDustTrakinfo(), msettings)
 	})
 	f2b3 := widget.NewButton("Info", func() {
-		g.pt.PTrakport = fyne.CurrentApp().Preferences().StringWithFallback("PTrak", "")
+		instruments.PTrakport = fyne.CurrentApp().Preferences().StringWithFallback("PTrak", "")
 		dialog.ShowInformation("PTrak info", "It's a PTrak, ok?", msettings)
 	})
 	okbutton := widget.NewButton("OK", func() {
