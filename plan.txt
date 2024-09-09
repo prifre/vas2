@@ -1,7 +1,8 @@
-Version 0.28
 TODO:
-    ADD ALL COPYRIGHT STUFF!!!!
-	setting to add possibility to specify periods for Saving of Capture (currently once/hour)
+    check gracefulness when unplug cable/replug cable
+    get Macitosh & Ubuntu working!
+    Check for AeroTrak version and handle that better
+    ADD ALL COPYRIGHT STUFF!!!!???
     add TIME-zone
     fix Excel time style 
     save individual charts as image

@@ -1,0 +1,10 @@
+PIA
+meeting...
+Under titlar:
+PT	Under rubriken "Namno Particles 0.02-1.0um" "(pt/cm3)"
+DT	Under "Particles ug" "(ug/m3)" (yaxeln: 0-150 logaritmisk Y-axel?)
+AT	Under "Fine Particles 0.3-05um" "()
+
+Ändra skala efter synliga värden
+
+AeroTrak alltid starta

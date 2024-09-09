@@ -1,0 +1,677 @@
+/*
+
+2021-04-03 23:23
+TCP routines to handle TSI AeroTrak
+2021-04-10 got it to work.
+
+*/
+
+package main
+
+import (
+	"fmt"
+	"log"
+	"math/rand"
+	"net"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/goburrow/modbus"
+)
+
+type AeroTraktype struct {
+	simulateAeroTrak  bool
+	AeroTrakrunning   bool
+	AeroTrakclient    modbus.Client
+	AeroTrakhandler   *modbus.TCPClientHandler
+	AeroTraklastin    int
+	AeroTraksetupdone bool
+	AeroTrakport      string
+	defdelay          int64
+}
+
+func bytestoint32(b []byte) int32 {
+	var r int32
+	if len(b) == 4 {
+		r = int32(uint32(b[3]) | uint32(b[2])<<8 | uint32(b[1])<<16 | uint32(b[0])<<24)
+	}
+	if len(b) == 2 {
+		r = int32(uint32(b[1]) | uint32(b[0])<<8)
+	}
+	return r
+}
+func TSIdate(b []byte) string {
+	y := int(b[0]) * 256
+	y = y + int(b[1])
+	m := int(b[3])
+	d := int(b[5])
+	return fmt.Sprintf("%4d-%02d-%02d", y, m, d)
+}
+func TSItime(b []byte) string {
+	t := int(b[1])
+	m := int(b[3])
+	s := int(b[5])
+	return fmt.Sprintf("%02d:%02d:%02d", t, m, s)
+}
+func TSIbyteorder(b []byte) []byte {
+	for i := 0; i < len(b); i = i + 2 {
+		b[i], b[i+1] = b[i+1], b[i]
+	}
+	return b
+}
+func setTSItime() []uint16 {
+	t := time.Now()
+	var rtc []uint16
+	rtc = append(rtc, uint16(t.Year()))
+	rtc = append(rtc, uint16(t.Month()))
+	rtc = append(rtc, uint16(t.Day()))
+	rtc = append(rtc, uint16(t.Hour()))
+	rtc = append(rtc, uint16(t.Minute()))
+	rtc = append(rtc, uint16(t.Second()))
+	return rtc
+}
+func (at *AeroTraktype) modbusAeroTrakReadHoldingRegisters(adr uint16, count uint16) ([]byte, error) {
+	var results []byte
+	var err error
+	tries := 100
+	n := 100
+	//	ShowMyDebug("Reading " + fmt.Sprintf("%v, %v", adr, at.AeroTrakclient))
+	if at.AeroTrakclient == nil {
+		log.Printf("AeroTrakclient nil!")
+		return nil, nil
+	}
+	time.Sleep(time.Duration(at.defdelay)) //time.Sleep(time.Duration(n) * time.Millisecond)
+	results, err = at.AeroTrakclient.ReadHoldingRegisters(adr, count)
+	//	ShowMyDebug("Read " + fmt.Sprintf("%v, %v", adr, at.AeroTrakclient))
+	if err != nil {
+		//		log.Printf("error reading ReadHoldingRegisters %v", err.Error())
+		return nil, err
+	}
+	for len(results) < int(count) && tries > 0 {
+		if len(results) != int(count) {
+			//	ShowMyDebug(fmt.Sprintf("Got too little data!, waiting... %v,%v", n, tries))
+			time.Sleep(time.Duration(at.defdelay)) //time.Sleep(time.Duration(n) * time.Millisecond)
+			//	ShowMyDebug("Waited!")
+			n = n * 2
+		}
+	}
+	return results, err
+}
+func (at *AeroTraktype) ModbusAeroTrakgetinfo() string {
+	var err error
+	var results []byte
+	var reply string = ""
+	if at.AeroTrakclient == nil {
+		err = at.modbusAeroTrakopen()
+		if err != nil {
+			log.Printf("#1 GetAeroTrakdata Failed to open AeroTrak port %v\n", err)
+			return ""
+		}
+	}
+	err = at.modbuswrite(at.AeroTrakclient, 41001-40001, []uint16{6}) //AeroTrak START
+	if err != nil {
+		log.Printf("#2 GetAeroTrakData AeroTrak START! failed:  %v\n", err)
+	}
+	// get devicestatus to check if started!!!!
+	results, err = at.modbusAeroTrakReadHoldingRegisters(41002-40001, 1)
+	if err != nil {
+		log.Printf("#3 getdevicestatus1 %v\n", err)
+	}
+	for i := 0; i < 10; i++ {
+		for results[1] != 3 {
+			time.Sleep(time.Duration(at.defdelay)) //time.Sleep(1 * time.Second)
+			results, err = at.modbusAeroTrakReadHoldingRegisters(41002-40001, 1)
+			if err != nil {
+				log.Printf("#3 getdevicestatus2 %v\n", err)
+			}
+		}
+	}
+	// Device Info group 40001...
+	results, err = at.modbusAeroTrakReadHoldingRegisters(0, 32)
+	if err != nil {
+		log.Printf("modbusAeroTrakReadHoldingRegisters %v", err.Error())
+	}
+	reply = reply + fmt.Sprintf("Firmware version = %v\n", results[2])                       // Firmware version
+	reply = reply + fmt.Sprintf("Model = %v\n", string(TSIbyteorder(results[4:20])))         // Model
+	reply = reply + fmt.Sprintf("Serialnumber = %v\n", string(TSIbyteorder(results[20:36]))) // get Serialnumber
+
+	// get DateofManufacture / Datelastcalibration / Date next calibration due
+	results, err = at.modbusAeroTrakReadHoldingRegisters(40024-40001, 32)
+	if err != nil {
+		log.Printf("modbusAeroTrakReadHoldingRegisters(40024-40001, 32) %v ", err.Error())
+	}
+	reply = reply + fmt.Sprintf("Manufactureddate = %v\nLastcalibrationdate = %v\nNextcalibrationduedate = %v\n", TSIdate(results[0:6]), TSIdate(results[6:12]), TSIdate(results[12:18]))
+
+	// Configuration group 41082...
+	results, err = at.modbusAeroTrakReadHoldingRegisters(41082-40001, 20)
+	if err != nil {
+		log.Printf("modbusAeroTrakReadHoldingRegisters(40082-40001, 32) %v ", err.Error())
+	}
+	reply = reply + fmt.Sprintf("DHCP enabled %v\n", results[0:2])
+	reply = reply + fmt.Sprintf("IP address %v\n", results[2:6])
+	reply = reply + fmt.Sprintf("Subnet mask %v\n", results[6:10])
+	reply = reply + fmt.Sprintf("Gateway %v\n", results[10:14])
+	reply = reply + fmt.Sprintf("Modbus server port %v\n", results[14:16])
+	reply = reply + fmt.Sprintf("Modbus unit address %v\n", results[16:18])
+	for i := 18; i < 30; i = i + 2 {
+		reply = reply + fmt.Sprintf("Cutoff points = %v\n", int(results[i])*256+int(results[i+1]))
+	}
+
+	// Sample data block 42001...
+	results, err = at.modbusAeroTrakReadHoldingRegisters(42001-40001, 52)
+	if err != nil {
+		log.Printf("modbusAeroTrakReadHoldingRegisters(42001-40001, 52) %v", err.Error())
+	}
+	reply = reply + fmt.Sprintf("Sample Record Count = %v\n", bytestoint32(results[0:4]))
+	reply = reply + fmt.Sprintf("Index of last record count = %v\n", bytestoint32(results[4:8]))
+	reply = reply + fmt.Sprintf("RecordID of record being read %v\n", bytestoint32(results[8:12]))
+	reply = reply + fmt.Sprintf("Record Timestamp %v %v\n", TSIdate(results[12:18]), TSItime(results[18:24]))
+	reply = reply + fmt.Sprintf("Device Status = %v\n", results[35:37])
+	reply = reply + fmt.Sprintf("Alarm Status = %v\n", results[37:39])
+	reply = reply + fmt.Sprintf("Flow rate X100 = %v\n", results[39:41])
+	reply = reply + fmt.Sprintf("Elapsed sample time %v\n", results[41:43])
+	reply = reply + fmt.Sprintf("Elapsed sample time units %v (0=mSec, 1=sec, 2= 1/10 sec\n", results[6])
+	reply = reply + fmt.Sprintf("Count mode %v (0=differential, 1=cumulative)\n", results[7])
+	reply = reply + fmt.Sprintf("Count type = %v (0=Raw count, 1=FT3, 2=m3)\n", results[8])
+	reply = reply + fmt.Sprintf("Location number = %v\n", results[9])
+	results, err = at.modbusAeroTrakReadHoldingRegisters(41001-40001, 64)
+	if err != nil {
+		log.Printf("modbusAeroTrakReadHoldingRegisters(42001-40001, 64) %v", err.Error())
+	}
+	reply = reply + fmt.Sprintf("Device running state = %v  (1=stopped, 2=start delay, 3=holding, 4=sampling, other=not ready to send data)\n", results[3])
+	reply = reply + fmt.Sprintf("Battery status = %v\n", results[5])
+	reply = reply + fmt.Sprintf("Battery charge = %v\n", results[7])
+	reply = reply + fmt.Sprintf("Realtimeflowstatus = %v (0=OK, 1=Error, 2=Stopped)\n", string(results[8:10]))
+	reply = reply + fmt.Sprintf("AeroTrak Real-Time clock = %v %v\n", TSIdate(results[10:16]), TSItime(results[16:22]))
+	reply = reply + fmt.Sprintf("Start Delay = %v\n", bytestoint32(results[22:26]))
+	reply = reply + fmt.Sprintf("Hold Time = %v\n", bytestoint32(results[26:30]))
+	reply = reply + fmt.Sprintf("Sample Time = %v seconds\n", bytestoint32(results[30:34]))
+	reply = reply + fmt.Sprintf("Cycles Count = %v\n", int(results[28])*256+int(results[29]))
+	reply = reply + fmt.Sprintf("Channel Data Enable = %v\n\n", results[30:31])
+	at.modbuswrite(at.AeroTrakclient, 41001-40001, []uint16{7}) //AeroTrak STOP
+	results, err = at.modbusAeroTrakReadHoldingRegisters(41002-40001, 1)
+	if err != nil {
+		log.Printf("#3 getdevicestatus1 %v\n", err)
+	}
+	for i := 0; i < 10; i++ {
+		for results[1] != 0 {
+			time.Sleep(time.Duration(at.defdelay)) //time.Sleep(1 * time.Second)
+			results, err = at.modbusAeroTrakReadHoldingRegisters(41002-40001, 1)
+			if err != nil {
+				log.Printf("#3 getdevicestatus2 %v\n", err)
+			}
+		}
+	}
+
+	return reply
+}
+func (at *AeroTraktype) modbuswrite(client modbus.Client, adr uint16, v []uint16) error {
+	var err error
+	var r []byte
+	var i uint16
+	if client == nil {
+		err = at.modbusAeroTrakopen()
+		if err != nil {
+			return err
+		}
+	}
+	for i = 0; i < uint16(len(v)); i++ {
+		if client == nil {
+			return err
+		}
+		r, err = client.WriteSingleRegister(adr+i, v[i])
+		if err != nil {
+			log.Printf("#modbuswrite Error adr %v %v %v", (adr + 40001), r, err.Error())
+		}
+	}
+	return err
+}
+func (at *AeroTraktype) modbusAeroTraksetup() {
+	var err error
+	var vasrecipe uint16
+	var setupdelay int = 255
+	var mydebug bool = g.app.Preferences().BoolWithFallback("mydebug", true)
+	//	at.searchZone()
+
+	err = at.modbuswrite(at.AeroTrakclient, 41001-40001, []uint16{7}) //AeroTrak STOP
+	if mydebug && err != nil {
+		fmt.Printf("STOP %v\n", err)
+	}
+	time.Sleep(time.Duration(setupdelay))
+	err = at.modbuswrite(at.AeroTrakclient, 41006-40001, setTSItime()) // Set AeroTrak Real-Time Clock!
+	if mydebug && err != nil {
+		fmt.Printf("Set AeroTrak Real-Time Clock! %v\n", err)
+	}
+	time.Sleep(time.Duration(setupdelay))
+	err = at.modbuswrite(at.AeroTrakclient, 41001-40001, []uint16{8}) // CMD_SET_RTC
+	if mydebug && err != nil {
+		fmt.Printf("CMD_SET_RTC %v\n", err)
+	}
+	// time.Sleep(time.Duration(at.defdelay))
+	// err = at.modbuswrite(at.AeroTrakclient, 41001-40001, []uint16{12}) // CMD_DISABLE_LOCAL_CONTROL
+	// if mydebug && err != nil {
+	// 	log.Printf("#3 CMD_DISABLE_LOCAL_CONTROL %v", err)
+	// }
+
+	// Create location
+	// var vaslocation uint16
+	// vaslocation, s = at.getAeroTraklocations()
+	// if vaslocation < 1 {
+	// 	vaslocation = uint16(len(s) + 1)
+	// 	log.Printf("Creating new VAS location!\n")
+	// } else {
+	// 	log.Printf("Using found VAS location!\n")
+	// }
+	// results, err = at.modbusAeroTrakReadHoldingRegisters(42025-40001, 2) // Valid location selected???
+	// fmt.Printf("LOCATION NUMBER %v", results)
+	// if mydebug && err != nil {
+	// 	log.Printf("modbusAeroTrakReadHoldingRegisters(41111 %v", err)
+	// }
+	// err = at.modbuswrite(at.AeroTrakclient, 41080-40001, []uint16{vaslocation}) //Location select
+	// if mydebug && err != nil {
+	// 	fmt.Printf("Loacation selected %v\n", err)
+	// }
+	// results, err = at.modbusAeroTrakReadHoldingRegisters(41111-40001, 1) // Valid location selected???
+	// if mydebug && err != nil {
+	// 	log.Printf("modbusAeroTrakReadHoldingRegisters(41111 %v", err)
+	// }
+	// if bytestoint32(results[0:2]) == 0 {
+	// 	// Create new location
+	// 	err = at.modbuswrite(at.AeroTrakclient, 43002-40001, []uint16{86, 65, 83, 0}) // Location label "VAS"
+	// 	if mydebug && err != nil {
+	// 		fmt.Printf("Label VAS%v\n", err)
+	// 	}
+	// 	err = at.modbuswrite(at.AeroTrakclient, 41001-40001, []uint16{20}) // 9 = CMD_LOCATION_SAVE
+	// 	if mydebug && err != nil {
+	// 		fmt.Printf("CMD_LOCATION_SAVE %v\n", err)
+	// 	}
+	// }
+
+	// CHECK A VAS recipe!!!!!!!!
+	var results []byte
+	vasrecipe, _ = at.getAeroTrakrecipes()
+	err = at.modbuswrite(at.AeroTrakclient, 41081-40001, []uint16{vasrecipe}) //Recepie select
+	if mydebug && err != nil {
+		fmt.Printf("Recepie select %v\n", err)
+	}
+	results, err = at.modbusAeroTrakReadHoldingRegisters(41110-40001, 1) // Valid recipe selected???
+	if mydebug && err != nil {
+		log.Printf("modbusAeroTrakReadHoldingRegisters(41110 %v", err)
+	}
+	if bytestoint32(results[0:2]) == 0 && err != nil {
+		log.Printf("Creating VAS recipe\n")
+	}
+	// Write Recipe label select
+	err = at.modbuswrite(at.AeroTrakclient, 43019-40001, []uint16{86, 65, 83, 0}) // Recipe label
+	if mydebug && err != nil {
+		fmt.Printf("Recipe VAS %v\n", err)
+	}
+	time.Sleep(time.Duration(setupdelay))
+	// err = at.modbuswrite(at.AeroTrakclient, 41001-40001, []uint16{18}) // 9 = CMD_RECIPE_SAVE
+	// if mydebug && err != nil {
+	// 	fmt.Printf("CMD_RECIPE_SAVE %v\n", err)
+	// }
+	// time.Sleep(time.Duration(setupdelay))
+	err = at.modbuswrite(at.AeroTrakclient, 41055-40001, []uint16{0}) // SamplingMode 0=Auto, 1 = Manual
+	if mydebug && err != nil {
+		fmt.Printf("SamplingMode 0=Auto %v\n", err)
+	}
+	time.Sleep(time.Duration(setupdelay))
+	err = at.modbuswrite(at.AeroTrakclient, 41012-40001, []uint16{0, 0}) // Start Delay
+	if mydebug && err != nil {
+		fmt.Printf("Start Delay %v\n", err)
+	}
+	time.Sleep(time.Duration(setupdelay))
+ 	err = at.modbuswrite(at.AeroTrakclient, 41014-40001, []uint16{0, 0}) // Hold time
+	if mydebug && err != nil {
+		fmt.Printf("Hold time %v\n", err)
+	}
+	time.Sleep(time.Duration(setupdelay))
+	err = at.modbuswrite(at.AeroTrakclient, 41016-40001, []uint16{0, 1}) // Sample time
+	if mydebug && err != nil {
+		fmt.Printf("Sample time %v\n", err)
+	}
+	time.Sleep(time.Duration(setupdelay))
+	err = at.modbuswrite(at.AeroTrakclient, 41018-40001, []uint16{100}) // Cykles
+	if mydebug && err != nil {
+		fmt.Printf("Cykles %v\n", err)
+	}
+	time.Sleep(time.Duration(setupdelay))
+	err = at.modbuswrite(at.AeroTrakclient, 41020-40001, []uint16{63}) // Channeldataenable
+	if mydebug && err != nil {
+		fmt.Printf("Channeldataenable %v\n", err)
+	}
+	time.Sleep(time.Duration(setupdelay))
+	// was 255 * 255 instead of 2 :
+	err = at.modbuswrite(at.AeroTrakclient, 41091-40001, []uint16{300, 500, 1000, 3000, 5000, 10000}) // CutPoints
+	if mydebug && err != nil {
+		fmt.Printf("CutPoints %v\n", err)
+	}
+	time.Sleep(time.Duration(setupdelay))
+
+	err = at.modbuswrite(at.AeroTrakclient, 41001-40001, []uint16{9}) // 9 = CMD_SET_SAMPLING_CONFIG
+	if mydebug && err != nil {
+		fmt.Printf("CMD_SET_SAMPLING_CONFIG %v\n", err)
+	}
+	time.Sleep(time.Duration(setupdelay))
+	err = at.modbuswrite(at.AeroTrakclient, 41001-40001, []uint16{1}) // 1 = CMD_CLEAR ALL DATARECORDS
+	if mydebug && err != nil {
+		fmt.Printf("CMD_CLEAR ALL DATARECORDS %v\n", err)
+	}
+	// time.Sleep(time.Duration(at.defdelay))
+	// err = at.modbuswrite(at.AeroTrakclient, 41001-40001, []uint16{13}) // CMD_ENABLE_LOCAL_CONTROL
+	// if mydebug && err != nil {
+	// log.Printf("CMD_ENABLE_LOCAL_CONTROL %v", err)
+	// }
+	at.AeroTraklastin = 0
+}
+func (at *AeroTraktype) modbusAeroTrakopen() error {
+	var err error
+	if at.AeroTrakport == "" {
+		log.Printf("No AeroTrak port set")
+		return fmt.Errorf("no aerotrak port set")
+	}
+	at.AeroTrakhandler = modbus.NewTCPClientHandler(at.AeroTrakport)
+	// AeroTrakhandler.Timeout = 20 * time.Millisecond
+	//	handler.SlaveId = 0xFF
+	//	handler.Logger = log.New(os.Stdout, "test: ", log.LstdFlags)
+	// Connect manually so that multiple requests are handled in one connection session
+	err = at.AeroTrakhandler.Connect() // Connect manually so that multiple requests are handled in one session
+	if err != nil {
+		log.Printf("#1 AeroTrakopen error modbus.NewTCPClientHandler %v\n", err)
+		return err
+	}
+	at.AeroTrakclient = modbus.NewClient(at.AeroTrakhandler)
+	if err != nil {
+		log.Printf("#2 AeroTrakopen error modbus.NewClient %v\n", err)
+		return err
+	}
+	return err
+}
+func (at *AeroTraktype) GetAeroTrakdata() [6]int32 {
+	// Configuration group 41082...
+	var data [6]int32 = [6]int32{-1, -1, -1, -1, -1, -1}
+	var err error
+	var results []byte
+	var lastrecordindatabase int
+	if at.AeroTrakclient == nil {
+		for i := 0; i < 10; i++ {
+			_, err = net.DialTimeout("tcp", at.AeroTrakport, time.Duration(time.Second))
+			if err == nil {
+				break
+			}
+		}
+		if err != nil {
+			log.Printf("#0 GetAeroTrakdata:DialTimeout Failed  %v\n", err)
+			return data
+		}
+		err = at.modbusAeroTrakopen()
+		if err != nil {
+			log.Printf("#1 GetAeroTrakdata:modbusAeroTrakopen Failed %v\n", err)
+			return data
+		}
+		if !at.AeroTraksetupdone {
+			at.modbusAeroTraksetup()
+			at.AeroTraklastin = 0
+			if at.AeroTrakclient == nil {
+				log.Printf("#1 getAeroTrakdata no modbus.NewClient %v\n", err)
+				return data
+			}
+			at.AeroTraksetupdone = true
+		}
+		err = at.modbuswrite(at.AeroTrakclient, 41001-40001, []uint16{6}) //AeroTrak START
+		if err != nil {
+			log.Printf("#2 GetAeroTrakData AeroTrak START! failed:  %v\n", err)
+		}
+		time.Sleep(time.Second)
+		// get devicestatus to check if started!!!!
+		results, err = at.modbusAeroTrakReadHoldingRegisters(41002-40001, 1)
+		if err != nil {
+			log.Printf("#2 modbusAeroTrakReadHoldingRegisters failed1 ")
+			return data
+		}
+		for i := 0; i < 10; i++ {
+			if len(results) > 0 {
+				if results[1] == 3 {
+					break
+				}
+			}
+			time.Sleep(time.Duration(at.defdelay)) //time.Sleep(1 * time.Second)
+			results, err = at.modbusAeroTrakReadHoldingRegisters(41002-40001, 1)
+			if err != nil {
+				log.Printf("#3 getdevicestatus %v\n", err)
+				return data
+			}
+		}
+	}
+	results, err = at.modbusAeroTrakReadHoldingRegisters(42003-40001, 2)
+	if err != nil {
+		log.Printf("#4 Error reading last record in database %v", err.Error())
+		return data
+	}
+	lastrecordindatabase = int(bytestoint32(results[0:4]))
+	if at.AeroTraklastin < lastrecordindatabase {
+		//read the record
+		results, err = at.modbusAeroTrakReadHoldingRegisters(42026-40001, 64)
+		if err != nil {
+			log.Printf("#5 getAeroTrakdata ReadHoldingregisters failed: %v, %v", results, err.Error())
+		}
+		at.AeroTraklastin = lastrecordindatabase
+		for i := 0; i < 6; i = i + 1 {
+			data[i] = bytestoint32(results[i*4 : i*4+4]) // convert 4 bytes to int32
+		}
+		//		fmt.Printf("Data: %v\n", data)
+	}
+	if lastrecordindatabase > 999 {
+		at.modbusAeroTraksetup()
+		err = at.modbuswrite(at.AeroTrakclient, 41001-40001, []uint16{6}) //AeroTrak START
+		if err != nil {
+			log.Printf("#2 GetAeroTrakData AeroTrak START! failed:  %v\n", err)
+		}
+	}
+	return data
+}
+func (at *AeroTraktype) AeroTrakstop() error {
+	var err error
+	at.AeroTraksetupdone = false
+	err = at.modbusAeroTrakopen()
+	if err != nil {
+		log.Printf("#1 AeroTrakstop failed to open to stop %v ", err.Error())
+	} else {
+		at.modbuswrite(at.AeroTrakclient, 41001-40001, []uint16{7})  //AeroTrak STOP
+		time.Sleep(time.Duration(at.defdelay))                       //time.Sleep(time.Second)
+		at.modbuswrite(at.AeroTrakclient, 41001-40001, []uint16{13}) //ENABLE_LOCAL_CONTROL
+		time.Sleep(time.Duration(at.defdelay))                       //time.Sleep(time.Second)
+	}
+	at.AeroTrakclient = nil
+	at.AeroTrakhandler = nil
+	return err
+}
+func SimulatedAeroTrak() [6]int32 {
+	return [6]int32{rand.Int31n(1000), rand.Int31n(500), rand.Int31n(100), rand.Int31n(50), rand.Int31n(10), rand.Int31n(5)}
+}
+
+func (at *AeroTraktype) getAeroTrakrecipes() (uint16, []string) {
+	var err error
+	var r []string
+	var vas uint16 = 0
+	var results []byte
+	var mydebug bool = g.app.Preferences().BoolWithFallback("mydebug", true)
+	var numofrecipes, labellength, utf16support int32
+	results, err = at.modbusAeroTrakReadHoldingRegisters(40065-40001, 2) // get num of recipes
+	if mydebug && err != nil {
+		fmt.Printf("#1 getAeroTrakrecipes:modbusAeroTrakReadHoldingRegisters(40065 %v\n", err)
+	}
+	numofrecipes = bytestoint32(results[0:2]) // convert 4 bytes to int32
+	if numofrecipes < 1 {
+		log.Printf("#2 getAeroTrakrecipes:Error reading 40065 NO RECIPE SUPPORT! %v", err)
+		return 0, nil
+	}
+
+	results, err = at.modbusAeroTrakReadHoldingRegisters(40066-40001, 2) // get labelsupport of recipes
+	labellength = bytestoint32(results[0:2])                             // convert 4 bytes to int32
+	if labellength < 1 {
+		log.Printf("#3 getAeroTrakrecipes:Error reading 40066 NO RECIPE LABEL SUPPORT! %v", err)
+		return 0, nil
+	}
+
+	results, err = at.modbusAeroTrakReadHoldingRegisters(40035-40001, 2) // get UTF-16 of recipes
+	utf16support = bytestoint32(results[0:2])                            // convert 4 bytes to int32
+	if utf16support < 1 {
+		log.Printf("#4 getAeroTrakrecipes:Error reading 40035 UTF-16 SUPPORT! %v", err)
+		return 0, nil
+	}
+	for i := 1; i < int(numofrecipes); i++ {
+		err = at.modbuswrite(at.AeroTrakclient, 43018-40001, []uint16{uint16(i)}) // Select label 1
+		if mydebug && err != nil {
+			fmt.Printf("#5 getAeroTrakrecipes:Labelselect error %v\n", err)
+		}
+
+		results, err = at.modbusAeroTrakReadHoldingRegisters(43018+1-40001, 32) // get recipe labels
+		if err != nil {
+			log.Printf("#6 getAeroTrakrecipes:Error reading 43018 Recipe labels! %v", err)
+		}
+		s := string(results)
+		s = strings.ReplaceAll(s, string(rune(0)), "")
+		if s > "" {
+			r = append(r, s)
+			if s == "VAS" {
+				vas = uint16(i)
+			}
+		}
+	}
+	return vas, r
+}
+
+// func (at *AeroTraktype) getAeroTraklocations() (uint16, []string) {
+// 	var err error
+// 	var r []string
+// 	var vas uint16 = 0
+// 	var results []byte
+// 	var mydebug bool = g.app.Preferences().BoolWithFallback("mydebug", true)
+// 	var numoflocations, labellength, utf16support int32
+// 	results, err = at.modbusAeroTrakReadHoldingRegisters(40063-40001, 2) // get num of locations
+// 	if mydebug && err != nil {
+// 		fmt.Printf("#1 getAeroTraklocations:modbusAeroTrakReadHoldingRegisters(40063 %v\n", err)
+// 	}
+// 	numoflocations = bytestoint32(results[0:2]) // convert 4 bytes to int32
+// 	fmt.Printf("\nSupported num of Locations: %v\n", numoflocations)
+// 	if numoflocations < 1 {
+// 		log.Printf("#2 getAeroTraklocations:Error reading 40063 NO LOCATION SUPPORT! %v", err)
+// 		return 0, nil
+// 	}
+
+// 	results, err = at.modbusAeroTrakReadHoldingRegisters(40064-40001, 2) // get labelsupport of recipes
+// 	labellength = bytestoint32(results[0:2])                             // convert 4 bytes to int32
+// 	if labellength < 1 {
+// 		log.Printf("#3 getAeroTraklocations:Error reading 40064 NO RECIPE LABEL SUPPORT! %v", err)
+// 		return 0, nil
+// 	}
+
+// 	results, err = at.modbusAeroTrakReadHoldingRegisters(40035-40001, 2) // get UTF-16 of recipes
+// 	utf16support = bytestoint32(results[0:2])                            // convert 4 bytes to int32
+// 	if utf16support < 1 {
+// 		log.Printf("#4 getAeroTraklocations:Error reading 40035 UTF-16 SUPPORT! %v", err)
+// 		return 0, nil
+// 	}
+// 	for i := 1; i < int(numoflocations); i++ {
+// 		err = at.modbuswrite(at.AeroTrakclient, 43001-40001, []uint16{uint16(i)}) // Select label 1
+// 		if mydebug && err != nil {
+// 			fmt.Printf("#5 getAeroTrakrecipes:Labelselect error %v\n", err)
+// 		}
+
+// 		results, err = at.modbusAeroTrakReadHoldingRegisters(43001+1-40001, 32) // get recipe labels
+// 		if err != nil {
+// 			log.Printf("#6 getAeroTraklocations:Error reading 430101 Location labels! %v", err)
+// 		}
+// 		s := string(results)
+// 		s = strings.ReplaceAll(s, string(rune(0)), "")
+// 		s = strings.ReplaceAll(s, " ", "")
+// 		if s > "" {
+// 			r = append(r, s)
+// 			if s == "VAS" {
+// 				vas = uint16(i)
+// 			}
+// 		}
+// 	}
+// 	//os.Exit(0)
+// 	return vas, r
+// }
+
+// func (at *AeroTraktype) searchZone() {
+// 	var results []byte
+// 	var s string
+// 	var err error
+// 	if at.AeroTrakclient == nil {
+// 		at.modbusAeroTrakopen()
+// 	}
+// 	err = at.modbuswrite(at.AeroTrakclient, 43001-40001, []uint16{uint16(5)}) // Select label 1
+// 	if err != nil {
+// 		log.Printf("#1 modBus Write %v", err)
+// 	}
+
+// 	results, err = at.modbusAeroTrakReadHoldingRegisters(43002-40001, 16) // get recipe labels
+// 	if err != nil {
+// 		log.Printf("#2 modBus read %v", err)
+// 	}
+// 	s = string(results)
+// 	// s = strings.ReplaceAll(s, string(rune(0)), "")
+// 	// s = strings.ReplaceAll(s, " ", "")
+// 	fmt.Println("###############", s)
+// 	fmt.Println(s)
+// }
+func (at *AeroTraktype) cmdloop(prog string) error {
+	var cmd string
+	var val int
+	var proglines []string
+	var err error = nil
+	err = at.modbusAeroTrakopen()
+	if err != nil {
+		log.Printf("#1 cmdloop failed to open to stop %v ", err.Error())
+		return err
+	}
+	proglines = strings.Split(prog, "\n")
+	for i := 0; i < len(proglines); i++ {
+		cmd = string(proglines[i])
+		if len(strings.Split(cmd, " ")) > 1 {
+			v1 := strings.Split(cmd, " ")[1]
+			val, _ = strconv.Atoi(v1)
+			cmd = strings.Split(cmd, " ")[0]
+		}
+		switch cmd {
+		case "STOP":
+			err = at.modbuswrite(at.AeroTrakclient, 41001-40001, []uint16{7}) //AeroTrak STOP
+		case "START":
+			err = at.modbuswrite(at.AeroTrakclient, 41001-40001, []uint16{6}) //AeroTrak START
+		case "ENABLELOCALCONTROL":
+			err = at.modbuswrite(at.AeroTrakclient, 41001-40001, []uint16{13}) //ENABLE_LOCAL_CONTROL
+		case "DISABLELOCALCONTROL":
+			err = at.modbuswrite(at.AeroTrakclient, 41001-40001, []uint16{12}) // DISABLE_LOCAL_CONTROL
+		case "SETRTC":
+			err = at.modbuswrite(at.AeroTrakclient, 41006-40001, setTSItime()) // Set AeroTrak Real-Time Clock!
+		case "CMDSETRTC":
+			err = at.modbuswrite(at.AeroTrakclient, 41001-40001, []uint16{8}) // CMD_SET_RTC
+		case "STARTDELAY":
+			err = at.modbuswrite(at.AeroTrakclient, 41012-40001, []uint16{0, uint16(val)}) // Start Delay
+		case "SAMPLINGMODE":
+			err = at.modbuswrite(at.AeroTrakclient, 41055-40001, []uint16{uint16(val)}) // SamplingMode 0=Auto, 1 = Manual
+		case "HOLDTIME":
+			err = at.modbuswrite(at.AeroTrakclient, 41014-40001, []uint16{0, uint16(val)}) // Hold time
+		case "CLEARDATARECORDS":
+			err = at.modbuswrite(at.AeroTrakclient, 41001-40001, []uint16{1}) // 1 = CMD_CLEAR ALL DATARECORDS
+		case "SAMPLETIME":
+			err = at.modbuswrite(at.AeroTrakclient, 41016-40001, []uint16{0, uint16(val)}) // Sample time
+		case "CYCLES":
+			err = at.modbuswrite(at.AeroTrakclient, 41018-40001, []uint16{uint16(val)}) // Cykles
+		case "CHANNELDATAENABLE":
+			err = at.modbuswrite(at.AeroTrakclient, 41020-40001, []uint16{uint16(val)}) // Channeldataenable (63  !!)
+		case "CUTPOINTS":
+			err = at.modbuswrite(at.AeroTrakclient, 41091-40001, []uint16{300, 500, 1000, 3000, 5000, 10000}) // CutPoints
+		case "SLEEP":
+			time.Sleep(time.Duration(val))
+		}
+
+	}
+	return err
+}

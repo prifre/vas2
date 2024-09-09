@@ -1,4 +1,4 @@
-PIA - Particles In Air
+VAS - Visible Air System 
 
 This is a program to use three different TSI instruments to measurem Air.
 Two of the instruments, AeroTrak and DustTrak can be used unsupervised. 
@@ -16,9 +16,8 @@ And eventually begoming a quite big and code-wise messy.
 I used go and Fyne for the user interface. Other peoples go-packages are used for communication with instruments,
 graphs, ftp, exports, etc.
 
-Fitting for this program is my favorite saying: 
-"The amazing thing about a circus bear is not how well he dances, but that he dances at all..."
-
 With a simple
 /Peter Freund
-prifre@prifre.comwww.prifre.com/pia
+prifre@prifre.com
+Homepage: prifre.com/vas
+Download: prifre.com/vas/vas.zip

@@ -1,0 +1,167 @@
+Version 0.47
+    added second line for chart titles
+    fixed problem with Y-scales
+    There is now an application icon!
+    4SafeAir logo
+    Changed how Setupcharts works
+    Added shortcut keys:
+    Ctrl-S - Start Measurement
+    Ctrl-E - End Measurement
+    Ctrl-Q - End Measurement
+    Ctrl-U - Check for update
+
+Version 0.46
+    Possibility to show averaged data instead of factual data.
+    Takes a number of last measurements, adds last, creates and average and sets the latest as the new measurement for the graph.
+    Therefore it should be smoother... but not actual data are then shown in graph. Yet only actual data are saved into database.
+
+Version 0.45
+    Fixed problem updating database with PTrakdata into DustTrak table
+
+Version 0.44
+    Fixed problem with first record in maintainance not deletable.
+    Fixed so Excel export just adds time and not date for measurements.
+    Added SETCONFIGURATION so AeroTrak is more reliable?!
+
+Version 0.43
+    Found & solved problem with 2015 Firmware version of AeroTrak (Delay >=10)
+    Fixed but with incorrectly updating Y-axis values
+    Fixed problem with redrawing of graph when max changes
+    Updated default for AeroTrak Manual Settings
+
+Version 0.42
+    Changed AeroTrakdata read so it checks before setup
+    Added retries to main loop so it detects if no AeroTrak data is coming and then stops with infodialog
+    added getdata,err to AeroTrak getdata to detect if error was received instead of data    
+
+Version 0.41
+    Added "beforeread" and "afterread" to Special AeroTrak settings
+    Shrunk text for graphs slightly from textsizedivider=30 to textsizedivider=40
+    Added SHOWDATA and SHOWCMD to show/hide info in textwindow for debugging purposes
+    
+Version 0.40
+    Special AeroTrak settings and command based setup for AeroTrak
+    
+Version 0.39
+    Just a minior testversion, where VAS uses recipe "VAS" when configuring AeroTrak
+    
+Version 0.38
+    After Teams conference, changed:
+    improved AeroTrak handling
+    implemented dynamic Y-axis
+    Renamed PIA to VAS... (Visible Air System)
+    Fixed small error regarding path & starting up
+
+Version 0.37
+    Changed minutes, seconds to hours, minutes.
+    (forgot to change cersion number in piamain.go though.)
+
+Version 0.36
+    Added Count units:
+    delta/m3 =  21201 * #
+    delta/ft3 = 600 * #
+    Changed the settings layout. Not sure it got better...
+
+Version 0.35
+    Added Set Path to Settings
+    Added possibility to change storage location (database, logfil, exported files, etc)
+Version 0.34
+    Added a timedelay, so menu is closed when doing screenshot!
+    Changed so AeroTrak sampling is more reliable
+    Removed so AeroTrak is not disabled during sampling, so sampling can be paused on instrument, checked etc.
+    Fixed a couple of minor bugs related to error handling with AeroTrak
+    Tried to explain pruning better.
+    Changed pruning info in settings
+    Removed Edit-menu
+    
+Version 0.33
+    Fixed bug with AeroTrak sampling
+    Fixed bug with charts updating
+
+Version 0.32
+    Added manual settings of instruments
+    Fixed problem with incorrect startsize of charts
+
+Version 0.31
+    Corrected StrokeColor so it is compatible with fyne 2.1
+    Corrected MyTSIscanner so IP-adress is seached correctly?!
+    Fixed size of just one instrument charts
+    Some improvement regarding handling of time at X-axis
+    Fixed maintainance dialog problem with fyne 2.1
+    Fixed browser header when checking for string in piaupdate.go
+
+Version 0.30
+    Some corrections to FTP
+    Some corrections to charts display
+    Some corrections to Remove redundant
+
+Version 0.29
+    Added pruning - removal of redundant measurements
+    In settings it is possible to choose save of data ever 5, 10 or 60 seconds.
+    In Measurements maintainance it is possible to du pruning with the magnifier icon
+    New menus include Export of current measurement as textfile and Removal of redundant
+    When starting, it shows "Autostart active" if active
+    Added first version of copyright notice...
+    
+Version 0.28
+    added FTP upload & FTP-settings
+    improved finding instruments on computer with multiple-ip adresses
+    changed main loop so Gorutinenumber is low and under control?!
+    
+Version 0.27
+    changed back SQL-engine
+    changed so all exports go to user directory
+    run testruns > 1h with instruments
+    update main routine
+    
+Version 0.26
+    changed SQL-engine
+    changed so all exports go to user directory
+    run testruns > 1h with instruments
+    
+Version 0.25
+    added screenshot!
+    added correct Y-axis scales
+    
+Version 0.24
+    added feature to save selected windows size!
+    fixed irritating bug related to missing preferences file.
+    found and corrected bug related to autostart measuring
+    changed standard renaming to more compact format
+    added PLAY in measurements maintainance
+    removed measurements details - counting takes too long when jumping
+    change excel-export-filenaming
+
+Version 0.23 (2021-05-16 10:10)
+    Serious bug with time handling corrected
+    Time correctly exported to excel
+
+Version 0.22
+    possible to export one measurement from handle-measurement-window to Excel!
+    now possible to change settings & handle measurements while running = good idea?!
+
+Version 0.21
+    handle measurements kindof implemented
+    now possible to rename measurements (mname), add/edit note, chech out number of datapoints
+    BUGFIXES:
+        Corrected MyDebug checkbox
+        Added so when g.window closes app quits
+        Changed so Measurements & Settings close correctly
+
+Version 0.20
+New menu item: Help->Check for update
+Created webspace (prifre.com/vas) with some documentation
+Removed Help->Various information menu
+New menu item: Help->Open the VISIBLE AIR SYSTEM webpage!
+
+Version 0.19
+First release to Anders...
+- measuring with AeroTrak, DustTrak, PTrak
+- simulated measuring with instruments
+- saving of measurements to database
+- exporting of database to textfiles
+- updating of linecharts in realtime
+- some settings:
+-- datapoints to show per graph
+-- colors for line graph
+-- simulated, autostart, synchronized
