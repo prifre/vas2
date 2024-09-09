@@ -1,3 +1,5 @@
+package instruments
+
 /*
 
 2021-04-06
@@ -8,8 +10,6 @@ TCP routines to read from DustTrak/AeroTrak...
 working ok
 
 */
-
-package main
 
 import (
 	"fmt"

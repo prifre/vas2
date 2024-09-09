@@ -1,10 +1,10 @@
+package instruments
+
 /*
 
 module for reading PTrak data
 
 */
-
-package main
 
 import (
 	"errors"
@@ -17,6 +17,7 @@ import (
 	"testing"
 	"time"
 
+	"fyne.io/fyne/v2"
 	"github.com/jacobsa/go-serial/serial"
 	"golang.org/x/sys/windows/registry"
 )
@@ -169,7 +170,7 @@ func (pt *PTraktype) FindPTrak() (string, error) {
 		if reply == "QLMODL8525" {
 			theport = comports[i]
 			log.Println("Found PTrak at port: ", theport)
-			g.app.Preferences().SetString("PTrak", theport)
+			fyne.CurrentApp().Preferences().SetString("PTrak", theport)
 		}
 		port.Close()
 	}

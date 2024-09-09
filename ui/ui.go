@@ -51,11 +51,6 @@ type game struct {
 	start        time.Time
 	widget.BaseWidget
 	datapoints            int
-	d                     *dbtype
-	f1                    *ftptype
-	at                    AeroTraktype
-	dt                    DustTraktype
-	pt                    PTraktype
 	synchronizedmeasuring bool
 	autostartmeasuring    bool
 	recordcount           int
@@ -63,7 +58,7 @@ type game struct {
 	paused                bool
 	endmeasuring          bool
 	cont                  fyne.Container
-	chart                 *[8]LineChart
+	chart                 *[]fyne.Container
 	chartSize             fyne.Size
 	countunits            int32
 	averagepoints         int
@@ -74,7 +69,9 @@ var instruments = [3]string{"PTrak", "DustTrak", "AeroTrak"}
 var tbl []string = []string{"tblAeroTrak", "tblDustTrak", "tblPTrak", "tblMain"}
 var g game
 
-func main() {
+// Create will stitch together all ui components
+func Create(window fyne.Window) *container.AppTabs {
+	Setupfiles()
 	//	os.Setenv("FYNE_SCALE", "1.0")
 	//	var g game = *newGame(&[8]LineChart{})
 	g = *new(game)
@@ -86,9 +83,9 @@ func main() {
 	g.window.Canvas().SetOnTypedRune(g.typedRune)
 	g.d = new(dbtype)
 	g.f1 = new(ftptype)
-	g.MyDebug = g.app.Preferences().BoolWithFallback("mydebug", true)
-	w := g.app.Preferences().FloatWithFallback("winWidth", 1024)
-	h := g.app.Preferences().FloatWithFallback("winHeight", 768)
+	g.MyDebug = fyne.CurrentApp().Preferences().BoolWithFallback("mydebug", true)
+	w := fyne.CurrentApp().Preferences().FloatWithFallback("winWidth", 1024)
+	h := fyne.CurrentApp().Preferences().FloatWithFallback("winHeight", 768)
 	if w < 800 {
 		w = 800
 	}
@@ -97,13 +94,13 @@ func main() {
 	}
 	g.winSize = fyne.NewSize(float32(w), float32(h))
 	g.window.Resize(g.winSize)
-	g.datapoints = g.app.Preferences().IntWithFallback("datapoints", 10)
-	cu := g.app.Preferences().IntWithFallback("countunits", 0)
+	g.datapoints = fyne.CurrentApp().Preferences().IntWithFallback("datapoints", 10)
+	cu := fyne.CurrentApp().Preferences().IntWithFallback("countunits", 0)
 	g.countunits = []int32{1, 21201, 600}[cu]
-	g.averagepoints = g.app.Preferences().IntWithFallback("averagepoints", 30)
-	g.synchronizedmeasuring = g.app.Preferences().BoolWithFallback("synchronizedmeasuring", true)
-	g.autostartmeasuring = g.app.Preferences().BoolWithFallback("autostartmeasuring", true)
-	g.d.nanostamp = Getint64(g.app.Preferences().StringWithFallback("nanostamp", "0"))
+	g.averagepoints = fyne.CurrentApp().Preferences().IntWithFallback("averagepoints", 30)
+	g.synchronizedmeasuring = fyne.CurrentApp().Preferences().BoolWithFallback("synchronizedmeasuring", true)
+	g.autostartmeasuring = fyne.CurrentApp().Preferences().BoolWithFallback("autostartmeasuring", true)
+	g.d.nanostamp = Getint64(fyne.CurrentApp().Preferences().StringWithFallback("nanostamp", "0"))
 	g.setuplogging()
 	g.d.Setupdb(&g)
 	g.start = time.Now()
@@ -251,23 +248,24 @@ func (g *game) buildMenu() *fyne.MainMenu {
 			g.StopMeasurement()
 			g.d.Closemeasurement()
 			log.Printf("Measurement '%v' (%v) stopped", g.d.mname, g.d.nanostamp)
-			g.app.Preferences().SetString("nanostamp", "0")
+			fyne.CurrentApp().Preferences().SetString("nanostamp", "0")
 			g.d.mname = ""
 		}),
 		fyne.NewMenuItemSeparator(),
 		fyne.NewMenuItem("Measurements maintainance", func() {
 			g.StopMeasurement()
-			g.d.DoMeasurements(g)
+			new(vasdatabase.DBtype).DoMeasurements(g)
 		}),
 		fyne.NewMenuItem("Save screen", func() {
 			time.Sleep(time.Second)
-			g.Doscreenshot()
+			new(general).Doscreenshot()
 		}),
 		fyne.NewMenuItem("Upload to FTP-server", func() {
 			var fn string
 			for i := 0; i < len(tbl); i++ {
 				fn = tbl[i] + ".txt"
-				_, err = os.Stat(filepath.Join(filepath.Dir(g.d.Databasepath), fn))
+				hd:=fyne.CurrentApp().Preferences().String("homedir")
+				_, err = os.Stat(filepath.Join(hd, fn))
 				if err != nil {
 					log.Print("File ", fn, " not found: ", err.Error())
 				} else {
@@ -376,13 +374,13 @@ func (g *game) getoldmeasurement() error {
 	var temp []string
 	var err error
 	if g.d.nanostamp == 0 {
-		if !g.app.Preferences().BoolWithFallback("autostartmeasuring", false) {
+		if !fyne.CurrentApp().Preferences().BoolWithFallback("autostartmeasuring", false) {
 			return fmt.Errorf("no autostart")
 		}
-		if Getint64(g.app.Preferences().StringWithFallback("nanostamp", "0")) == 0 {
+		if Getint64(fyne.CurrentApp().Preferences().StringWithFallback("nanostamp", "0")) == 0 {
 			return fmt.Errorf("no nanostamp")
 		}
-		g.d.nanostamp = Getint64(g.app.Preferences().StringWithFallback("nanostamp", "0"))
+		g.d.nanostamp = Getint64(fyne.CurrentApp().Preferences().StringWithFallback("nanostamp", "0"))
 	}
 	temp, err = g.d.Getsql(fmt.Sprintf("SELECT mname FROM tblMain WHERE nanostamp=%v", g.d.nanostamp))
 	if err != nil {
@@ -410,12 +408,12 @@ func (g *game) getoldmeasurement() error {
 }
 func (g *game) StartMeasurement() {
 	var err error
-	g.synchronizedmeasuring = g.app.Preferences().BoolWithFallback("synchronizedmeasuring", true)
-	g.autostartmeasuring = g.app.Preferences().BoolWithFallback("autostartmeasuring", true)
+	g.synchronizedmeasuring = fyne.CurrentApp().Preferences().BoolWithFallback("synchronizedmeasuring", true)
+	g.autostartmeasuring = fyne.CurrentApp().Preferences().BoolWithFallback("autostartmeasuring", true)
 	g.checkinstruments()
-	g.at.AeroTrakport = g.app.Preferences().StringWithFallback("AeroTrak", "")
-	g.dt.DustTrakport = g.app.Preferences().StringWithFallback("DustTrak", "")
-	g.pt.PTrakport = g.app.Preferences().StringWithFallback("PTrak", "")
+	g.at.AeroTrakport = fyne.CurrentApp().Preferences().StringWithFallback("AeroTrak", "")
+	g.dt.DustTrakport = fyne.CurrentApp().Preferences().StringWithFallback("DustTrak", "")
+	g.pt.PTrakport = fyne.CurrentApp().Preferences().StringWithFallback("PTrak", "")
 	if !g.at.AeroTrakrunning && !g.dt.DustTrakrunning && !g.pt.PTrakrunning {
 		return
 	}
@@ -427,7 +425,7 @@ func (g *game) StartMeasurement() {
 		}
 		log.Println("Autocreating new measurement!")
 		g.d.nanostamp = time.Now().UnixNano()
-		g.app.Preferences().SetString("nanostamp", fmt.Sprintf("%v", g.d.nanostamp))
+		fyne.CurrentApp().Preferences().SetString("nanostamp", fmt.Sprintf("%v", g.d.nanostamp))
 		g.d.tstamp = time.Now().Format(time.RFC3339)
 		g.d.mname = "Measurement" + g.d.tstamp
 		g.d.mname = strings.Replace(g.d.mname, "-", "", 99)
@@ -507,7 +505,7 @@ func (g *game) getData() bool {
 	g.d.mdata[2] = -1
 	if g.pt.PTrakrunning {
 		if g.pt.simulatePTrak {
-			g.d.mdata[0] = SimulatedPTrak()
+			g.d.mdata[0] = new(vasinstruments).SimulatedPTrak()
 		} else {
 			g.d.mdata[0] = g.pt.GetPTrakdata()
 		}
@@ -579,12 +577,12 @@ func (g *game) SetupInstruments() {
 	log.Println("Searching for TSI network instruments DustTrak & AeroTrak")
 	log.Println("Searching for TSI serial instrument PTrak")
 	instsettings := fmt.Sprintf("AeroTrak: %v, DustTrak: %v, PTrak: %v",
-		g.app.Preferences().String("AeroTrak"), g.app.Preferences().String("DustTrak"), g.app.Preferences().String("PTrak"))
+		fyne.CurrentApp().Preferences().String("AeroTrak"), fyne.CurrentApp().Preferences().String("DustTrak"), fyne.CurrentApp().Preferences().String("PTrak"))
 	if instsettings != "AeroTrak: , DustTrak: , PTrak: " {
 		log.Println("Clearing old instruments settings!\n (" + instsettings + ")")
-		g.app.Preferences().SetString("AeroTrak", "")
-		g.app.Preferences().SetString("DustTrak", "")
-		g.app.Preferences().SetString("PTrak", "")
+		fyne.CurrentApp().Preferences().SetString("AeroTrak", "")
+		fyne.CurrentApp().Preferences().SetString("DustTrak", "")
+		fyne.CurrentApp().Preferences().SetString("PTrak", "")
 	}
 	_, err = g.pt.FindPTrak()
 	if err != nil {
@@ -593,14 +591,14 @@ func (g *game) SetupInstruments() {
 	if g.MyTSIscanner() != nil {
 		log.Println("#2 SetupInstruments:MyTSIscanner:\n", err.Error())
 	}
-	if g.app.Preferences().String("AeroTrak") > "" {
-		s += "\nAeroTrak: " + g.app.Preferences().String("AeroTrak")
+	if fyne.CurrentApp().Preferences().String("AeroTrak") > "" {
+		s += "\nAeroTrak: " + fyne.CurrentApp().Preferences().String("AeroTrak")
 	}
-	if g.app.Preferences().String("DustTrak") > "" {
-		s += "\nDustTrak: " + g.app.Preferences().String("DustTrak")
+	if fyne.CurrentApp().Preferences().String("DustTrak") > "" {
+		s += "\nDustTrak: " + fyne.CurrentApp().Preferences().String("DustTrak")
 	}
-	if g.app.Preferences().String("PTrak") > "" {
-		s += "\nPTrak: " + g.app.Preferences().String("PTrak")
+	if fyne.CurrentApp().Preferences().String("PTrak") > "" {
+		s += "\nPTrak: " + fyne.CurrentApp().Preferences().String("PTrak")
 	}
 	if s == "" {
 		dialog.ShowInformation("", "No instruments found.", g.window)
@@ -612,26 +610,26 @@ func (g *game) SetupInstruments() {
 
 // sets instruments to running depending of simulated settings and Preferences ports
 func (g *game) checkinstruments() {
-	g.at.AeroTrakport = g.app.Preferences().StringWithFallback("AeroTrak", "")
-	g.dt.DustTrakport = g.app.Preferences().StringWithFallback("DustTrak", "")
-	g.pt.PTrakport = g.app.Preferences().StringWithFallback("PTrak", "")
-	g.at.simulateAeroTrak = g.app.Preferences().BoolWithFallback("SimulateAeroTrak", true) && (g.at.AeroTrakport == "")
-	g.dt.simulateDustTrak = g.app.Preferences().BoolWithFallback("SimulateDustTrak", true) && (g.dt.DustTrakport == "")
-	g.pt.simulatePTrak = g.app.Preferences().BoolWithFallback("SimulatePTrak", true) && (g.pt.PTrakport == "")
+	g.at.AeroTrakport = fyne.CurrentApp().Preferences().StringWithFallback("AeroTrak", "")
+	g.dt.DustTrakport = fyne.CurrentApp().Preferences().StringWithFallback("DustTrak", "")
+	g.pt.PTrakport = fyne.CurrentApp().Preferences().StringWithFallback("PTrak", "")
+	g.at.simulateAeroTrak = fyne.CurrentApp().Preferences().BoolWithFallback("SimulateAeroTrak", true) && (g.at.AeroTrakport == "")
+	g.dt.simulateDustTrak = fyne.CurrentApp().Preferences().BoolWithFallback("SimulateDustTrak", true) && (g.dt.DustTrakport == "")
+	g.pt.simulatePTrak = fyne.CurrentApp().Preferences().BoolWithFallback("SimulatePTrak", true) && (g.pt.PTrakport == "")
 	g.at.AeroTrakrunning = (g.at.AeroTrakport > "" || g.at.simulateAeroTrak)
 	g.dt.DustTrakrunning = (g.dt.DustTrakport > "" || g.dt.simulateDustTrak)
 	g.pt.PTrakrunning = (g.pt.PTrakport > "" || g.pt.simulatePTrak)
-	g.app.Preferences().SetBool("SimulateAeroTrak", g.at.simulateAeroTrak)
-	g.app.Preferences().SetBool("SimulateDustTrak", g.dt.simulateDustTrak)
-	g.app.Preferences().SetBool("SimulatePTrak", g.pt.simulatePTrak)
-	i64, _ := strconv.ParseInt(g.app.Preferences().StringWithFallback("ATdelay", "200"), 10, 64)
+	fyne.CurrentApp().Preferences().SetBool("SimulateAeroTrak", g.at.simulateAeroTrak)
+	fyne.CurrentApp().Preferences().SetBool("SimulateDustTrak", g.dt.simulateDustTrak)
+	fyne.CurrentApp().Preferences().SetBool("SimulatePTrak", g.pt.simulatePTrak)
+	i64, _ := strconv.ParseInt(fyne.CurrentApp().Preferences().StringWithFallback("ATdelay", "200"), 10, 64)
 	g.at.defdelay = i64
 }
 
 func (g *game) closeapp() {
 	g.StopMeasurement()
-	g.app.Preferences().SetFloat("winWidth", float64(g.window.Canvas().Size().Width))
-	g.app.Preferences().SetFloat("winHeight", float64(g.window.Canvas().Size().Height))
+	fyne.CurrentApp().Preferences().SetFloat("winWidth", float64(g.window.Canvas().Size().Width))
+	fyne.CurrentApp().Preferences().SetFloat("winHeight", float64(g.window.Canvas().Size().Height))
 	g.app.Quit()
 }
 
@@ -793,7 +791,7 @@ func (g *game) MyTSIscanner() error {
 				_, err = net.DialTimeout("tcp", adr, timeout)
 				if err == nil {
 					tcpinstruments = append(tcpinstruments, "AeroTrak="+adr)
-					g.app.Preferences().SetString("AeroTrak", adr)
+					fyne.CurrentApp().Preferences().SetString("AeroTrak", adr)
 					log.Println("Found AeroTrak at " + adr)
 					continue
 				}
@@ -801,7 +799,7 @@ func (g *game) MyTSIscanner() error {
 				_, err = net.DialTimeout("tcp", adr, timeout)
 				if err == nil {
 					tcpinstruments = append(tcpinstruments, "DustTrak="+adr)
-					g.app.Preferences().SetString("DustTrak", adr)
+					fyne.CurrentApp().Preferences().SetString("DustTrak", adr)
 					log.Println("Found DustTrak at " + adr)
 				}
 			}
@@ -817,10 +815,10 @@ func (g *game) Doftp(fn string) {
 	var err error
 	var content []byte
 	var buf *bytes.Buffer
-	g.f1.ftpserver = g.app.Preferences().StringWithFallback("ftpserver", "")
-	g.f1.ftpusername = g.app.Preferences().StringWithFallback("ftpusername", "")
-	g.f1.ftppassword = g.app.Preferences().StringWithFallback("ftppassword", "")
-	g.f1.ftpdir = g.app.Preferences().StringWithFallback("ftpdir", "")
+	g.f1.ftpserver = fyne.CurrentApp().Preferences().StringWithFallback("ftpserver", "")
+	g.f1.ftpusername = fyne.CurrentApp().Preferences().StringWithFallback("ftpusername", "")
+	g.f1.ftppassword = fyne.CurrentApp().Preferences().StringWithFallback("ftppassword", "")
+	g.f1.ftpdir = fyne.CurrentApp().Preferences().StringWithFallback("ftpdir", "")
 	if len(g.f1.ftpserver) == 0 || len(g.f1.ftpusername) == 0 || len(g.f1.ftpserver) == 0 {
 		return
 	}
@@ -848,7 +846,7 @@ func (g *game) getdocumentpath() fyne.URI {
 	if err != nil {
 		log.Println(err)
 	}
-	u := storage.NewFileURI(g.app.Preferences().StringWithFallback("documentpath", path))
+	u := storage.NewFileURI(fyne.CurrentApp().Preferences().StringWithFallback("documentpath", path))
 	if _, err := os.Stat("/path/to/whatever"); os.IsNotExist(err) {
 		u = storage.NewFileURI(path)
 	}

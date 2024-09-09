@@ -5,7 +5,7 @@ package main
 import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
-	"github.com/prifre/vas/ui"
+	"github.com/prifre/vas2/ui"
 )
 
 func main() {
@@ -16,6 +16,6 @@ func main() {
 	wy=764
 	w.Resize(fyne.NewSize(wx,wy))
 	w.Canvas().Content().Resize(fyne.NewSize(wx,wy))
-	w.SetContent(ui.Create( w))
+	w.SetContent(ui.Create(w))
 	w.ShowAndRun()
 }

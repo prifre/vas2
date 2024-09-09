@@ -1,3 +1,9 @@
+version 2
+preferences!
+dbfilename
+
+
+
 Version 0.47
     added second line for chart titles
     fixed problem with Y-scales

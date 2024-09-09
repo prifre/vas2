@@ -231,7 +231,7 @@ func (at *AeroTraktype) modbusAeroTraksetup() {
 	var err error
 	var vasrecipe uint16
 	var setupdelay int = 255
-	var mydebug bool = g.app.Preferences().BoolWithFallback("mydebug", true)
+	var mydebug bool = fyne.CurrentApp().Preferences().BoolWithFallback("mydebug", true)
 	//	at.searchZone()
 
 	err = at.modbuswrite(at.AeroTrakclient, 41001-40001, []uint16{7}) //AeroTrak STOP
@@ -497,7 +497,7 @@ func (at *AeroTraktype) getAeroTrakrecipes() (uint16, []string) {
 	var r []string
 	var vas uint16 = 0
 	var results []byte
-	var mydebug bool = g.app.Preferences().BoolWithFallback("mydebug", true)
+	var mydebug bool = fyne.CurrentApp().Preferences().BoolWithFallback("mydebug", true)
 	var numofrecipes, labellength, utf16support int32
 	results, err = at.modbusAeroTrakReadHoldingRegisters(40065-40001, 2) // get num of recipes
 	if mydebug && err != nil {
@@ -549,7 +549,7 @@ func (at *AeroTraktype) getAeroTrakrecipes() (uint16, []string) {
 // 	var r []string
 // 	var vas uint16 = 0
 // 	var results []byte
-// 	var mydebug bool = g.app.Preferences().BoolWithFallback("mydebug", true)
+// 	var mydebug bool = fyne.CurrentApp().Preferences().BoolWithFallback("mydebug", true)
 // 	var numoflocations, labellength, utf16support int32
 // 	results, err = at.modbusAeroTrakReadHoldingRegisters(40063-40001, 2) // get num of locations
 // 	if mydebug && err != nil {

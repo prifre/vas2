@@ -2,19 +2,21 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"strings"
 
+	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/dialog"
 )
 
-func (g *game) Checkforupdate() {
+func Checkforupdate() {
 	var txt string
 	var html []byte
 	var webversion, created string
 	var yourversion string
+	version:=fyne.CurrentApp().Preferences().String("version")
 	url := "https://prifre.com/vas/vas.htm"
 
 	//	resp, err := http.Get(url)
@@ -31,7 +33,7 @@ func (g *game) Checkforupdate() {
 		log.Println("#1 getUpdate", err.Error())
 	}
 	defer resp.Body.Close()
-	html, err = ioutil.ReadAll(resp.Body)
+	html, err = io.ReadAll(resp.Body)
 	if err != nil {
 		log.Println("#2 getUpdate ioread failed", err.Error())
 	}

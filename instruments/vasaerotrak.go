@@ -1,3 +1,5 @@
+package instruments
+
 /*
 
 2021-04-03 23:23
@@ -5,8 +7,6 @@ TCP routines to handle TSI AeroTrak
 2021-04-10 got it to work.
 
 */
-
-package main
 
 import (
 	"fmt"
@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"fyne.io/fyne/v2"
 	"github.com/goburrow/modbus"
 )
 
@@ -102,10 +103,12 @@ func (at *AeroTraktype) modbusAeroTrakReadHoldingRegisters(adr uint16, count uin
 	}
 	return results, err
 }
-func (at *AeroTraktype) ModbusAeroTrakgetinfo() (string, error) {
+func ModbusAeroTrakgetinfo(port string) (string, error) {
 	var err error = nil
 	var results []byte
 	var reply string = ""
+	at := new(AeroTraktype)
+	at.AeroTrakport = port
 	if at.AeroTrakclient == nil {
 		err = at.modbusAeroTrakopen()
 		if err != nil {
@@ -320,7 +323,7 @@ func (at *AeroTraktype) GetAeroTrakdata() ([6]int32, error) {
 }
 func (at *AeroTraktype) Setup() error {
 	var err error
-	var cmd string = g.app.Preferences().StringWithFallback("aerotrakcmd", at.setupaerotrakcode())
+	var cmd string = fyne.CurrentApp().Preferences().StringWithFallback("aerotrakcmd", at.setupaerotrakcode())
 	//findsection "setup"
 	// err = at.modbusAeroTrakopen()
 	// if err != nil {
@@ -340,7 +343,7 @@ func (at *AeroTraktype) Setup() error {
 }
 func (at *AeroTraktype) beforeread() error {
 	var err error
-	var cmd string = g.app.Preferences().StringWithFallback("aerotrakcmd", at.setupaerotrakcode())
+	var cmd string = fyne.CurrentApp().Preferences().StringWithFallback("aerotrakcmd", at.setupaerotrakcode())
 	//findsection "setup"
 	if !strings.Contains(cmd, "beforeread:") {
 		log.Print("Bad AeroTrak command program, 'beforeread:' missing")
@@ -355,7 +358,7 @@ func (at *AeroTraktype) beforeread() error {
 }
 func (at *AeroTraktype) afterread() error {
 	var err error
-	var cmd string = g.app.Preferences().StringWithFallback("aerotrakcmd", at.setupaerotrakcode())
+	var cmd string =fyne.CurrentApp().Preferences().StringWithFallback("aerotrakcmd", at.setupaerotrakcode())
 	//findsection "setup"
 	if !strings.Contains(cmd, "afterread:") {
 		log.Print("Bad AeroTrak command program, 'afterread:' missing")
@@ -371,7 +374,7 @@ func (at *AeroTraktype) afterread() error {
 func (at *AeroTraktype) AeroTrakstop() error {
 	var err error
 	// getproglines "stop"
-	var cmd string = g.app.Preferences().StringWithFallback("aerotrakcmd", at.setupaerotrakcode())
+	var cmd string = fyne.CurrentApp().Preferences().StringWithFallback("aerotrakcmd", at.setupaerotrakcode())
 	//findsection "stop"
 	if !strings.Contains(cmd, "stop:") {
 		log.Print("Bad AeroTrak command program, 'stop:' missing")
@@ -389,7 +392,7 @@ func (at *AeroTraktype) AeroTrakstop() error {
 
 func (at *AeroTraktype) AeroTrakstart() error {
 	var err error
-	var cmd string = g.app.Preferences().StringWithFallback("aerotrakcmd", at.setupaerotrakcode())
+	var cmd string = fyne.CurrentApp().Preferences().StringWithFallback("aerotrakcmd", at.setupaerotrakcode())
 	//findsection "start"
 	if !strings.Contains(cmd, "restart:") {
 		log.Print("Bad AeroTrak command program, 'restart:' missing")
@@ -407,7 +410,7 @@ func (at *AeroTraktype) getAeroTrakrecipes() ([]string, error) {
 	var err error
 	var r []string
 	var results []byte
-	var mydebug bool = g.app.Preferences().BoolWithFallback("mydebug", true)
+	var mydebug bool = fyne.CurrentApp().Preferences().BoolWithFallback("mydebug", true)
 	var numofrecipes, labellength, utf16support int32
 	results, err = at.modbusAeroTrakReadHoldingRegisters(40065-40001, 2) // get num of recipes
 	if mydebug && err != nil {
@@ -454,7 +457,7 @@ func (at *AeroTraktype) getAeroTraklocations() ([]string, error) {
 	var err error
 	var r []string
 	var results []byte
-	var mydebug bool = g.app.Preferences().BoolWithFallback("mydebug", true)
+	var mydebug bool = fyne.CurrentApp().Preferences().BoolWithFallback("mydebug", true)
 	var numoflocations, labellength, utf16support int32
 	results, err = at.modbusAeroTrakReadHoldingRegisters(40063-40001, 2) // get num of locations
 	if mydebug && err != nil {
@@ -580,7 +583,7 @@ func (at *AeroTraktype) aerotrakcode(prog string) error {
 			results, err = at.modbusAeroTrakReadHoldingRegisters(41002-40001, 1)
 			log.Println("READHOLDINGREGISTERS: ", results)
 		case "SHOWINFO":
-			log.Println(at.ModbusAeroTrakgetinfo())
+			log.Println(ModbusAeroTrakgetinfo(at.AeroTrakport))
 		case "SHOWRECIPES":
 			var results []string
 			results, err = at.getAeroTrakrecipes()
