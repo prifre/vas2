@@ -32,14 +32,16 @@ func Doscreenshot(currentwindow fyne.Window) string {
 			}
 		}
 	}
-	err = saveimg(img2, filepath.Join(g.getdocumentpath().Path(), fn))
+
+	hd:=fyne.CurrentApp().Preferences().String("homedir")
+	err = Saveimg(img2, filepath.Join(hd, fn))
 	if err != nil {
 		return ""
 	}
 	return fn
 }
 
-func saveimg(img image.Image, fn string) error {
+func Saveimg(img image.Image, fn string) error {
 	var err error
 	var f2 *os.File
 	f2, err = os.Create(fn)

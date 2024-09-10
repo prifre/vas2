@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"image/color"
 	"io"
-	"io/ioutil"
 	"log"
 	"net"
 	"net/url"
@@ -140,8 +139,8 @@ func (g *game) Measure() {
 				pauserestore := g.paused
 				g.paused = true
 				runtime.GC()
-				g.d.Pruning(g)
-				msg, err = g.d.Exporttotext(g)
+				new(vasdatabase.DBtype).Pruning()
+				msg, err = new(vasdatabase.DBtype).Exporttotext()
 				if err != nil {
 					log.Println("Error exporting: ", msg, g.window)
 				} else {
@@ -183,7 +182,7 @@ func (g *game) addkeyshortcuts() {
 	})
 	key_u := desktop.CustomShortcut{KeyName: fyne.KeyU, Modifier: desktop.ControlModifier}
 	g.window.Canvas().AddShortcut(&key_u, func(shortcut fyne.Shortcut) {
-		g.Checkforupdate()
+		general.Checkforupdate()
 	})
 }
 
@@ -231,7 +230,7 @@ func (g *game) buildMenu() *fyne.MainMenu {
 		}),
 		fyne.NewMenuItem("End Measuring", func() {
 			g.StopMeasurement()
-			g.d.Closemeasurement()
+			new(vasdatabase.DBtype).Closemeasurement()
 			log.Printf("Measurement '%v' (%v) stopped", g.d.mname, g.d.nanostamp)
 			fyne.CurrentApp().Preferences().SetString("nanostamp", "0")
 			g.d.mname = ""
@@ -239,11 +238,11 @@ func (g *game) buildMenu() *fyne.MainMenu {
 		fyne.NewMenuItemSeparator(),
 		fyne.NewMenuItem("Measurements maintainance", func() {
 			g.StopMeasurement()
-			new(vasdatabase.DBtype).DoMeasurements(g)
+			DoMeasurements()
 		}),
 		fyne.NewMenuItem("Save screen", func() {
 			time.Sleep(time.Second)
-			new(general).Doscreenshot()
+			new(general).Doscreenshot(g.window)
 		}),
 		fyne.NewMenuItem("Upload to FTP-server", func() {
 			var fn string
@@ -310,7 +309,9 @@ func (g *game) buildMenu() *fyne.MainMenu {
 			dialog.ShowInformation("About...", t, g.window)
 		}),
 		fyne.NewMenuItem("Check for update", func() {
-			g.Checkforupdate()
+			msg:=general.Checkforupdate()
+			dialog.ShowInformation("Update information...",msg, g.window)
+
 		}),
 		fyne.NewMenuItemSeparator(),
 		fyne.NewMenuItem("Open the VISIBLE AIR SYSTEM webpage!", func() {
@@ -813,13 +814,14 @@ func (g *game) Doftp(fn string) {
 		log.Println("#1 DoUpload Login failed", err.Error())
 		return
 	}
-	content, err = ioutil.ReadFile(filepath.Join(filepath.Dir(g.d.Databasepath), fn))
+	content, err = os.ReadFile(filepath.Join(filepath.Dir(g.d.Databasepath), fn))
 	buf = bytes.NewBuffer(content)
+	hd:=fyne.CurrentApp().Preferences().String("homedir")
 	if err != nil {
-		log.Println("#2 Doftp:ReadFile: ", filepath.Join(filepath.Dir(g.d.Databasepath), fn), " failed:\n ", err.Error())
+		log.Println("#2 Doftp:ReadFile: ", filepath.Join(hd, fn), " failed:\n ", err.Error())
 		return
 	}
-	err = g.f1.ftpupload(g.f1.ftpdir+fn, *buf)
+	err = vasftp.Ftpupload(filepath.Join(hd, fn), *buf)
 	if err != nil {
 		log.Println("#3 Doftp:ftpupload: ", err.Error())
 		return

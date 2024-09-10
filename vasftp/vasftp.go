@@ -17,7 +17,7 @@ type ftptype struct {
 	ftpdir      string
 }
 
-func (f1 *ftptype) ftplogin() error {
+func (f1 *ftptype) Ftplogin() error {
 	var err error
 	if f1.ftpserver == "" || f1.ftpusername == "" {
 		return fmt.Errorf("login details not set")
@@ -39,7 +39,7 @@ func (f1 *ftptype) ftplogin() error {
 	return nil
 }
 
-func (f1 *ftptype) ftplogout() error {
+func (f1 *ftptype) Ftplogout() error {
 	var err error
 	if f1.client == nil {
 		log.Println("not logged in")
@@ -52,7 +52,7 @@ func (f1 *ftptype) ftplogout() error {
 	return nil
 }
 
-func (f1 *ftptype) ftpupload(remote_name string, buf bytes.Buffer) error {
+func (f1 *ftptype) Ftpupload(remote_name string, buf bytes.Buffer) error {
 	// gets ftp-file from server and saves locally
 	var err error
 	if f1.client == nil {

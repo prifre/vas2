@@ -8,10 +8,9 @@ import (
 	"strings"
 
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/dialog"
 )
 
-func Checkforupdate() {
+func Checkforupdate() string {
 	var txt string
 	var html []byte
 	var webversion, created string
@@ -52,17 +51,17 @@ func Checkforupdate() {
 	}
 	yourversion = fmt.Sprintf("%v", version)
 	yourversion = strings.Trim(yourversion, " \n")
+	msg:=""
 	if webversion <= yourversion {
-		dialog.ShowInformation("Update information...",
-			strings.Repeat("_", 70)+"\n\n\n"+
+			msg=strings.Repeat("_", 70)+"\n\n\n"+
 				"You have the latest version!\n"+
-				webversion+"\nYour version: "+yourversion+"\nCreated: "+created, g.window)
+				webversion+"\nYour version: "+yourversion+"\nCreated: "+created
 	} else {
-		dialog.ShowInformation("Update information...",
-			strings.Repeat("_", 70)+"\n\n\n"+
+		msg=strings.Repeat("_", 70)+"\n\n\n"+
 				"There is a newer version!\n\n"+
 				"Your version: "+fmt.Sprintf("%v", version)+"\n"+
 				"Latest version: "+webversion+"\n\nVersion was updated: "+created+
-				"\n\nDownload it from: http://www.prifre.com/vas", g.window)
+				"\n\nDownload it from: http://www.prifre.com/vas"
 	}
+	return msg
 }
