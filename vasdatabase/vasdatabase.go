@@ -482,7 +482,7 @@ func (db *DBtype) Getsql(sq string) ([]string, error) {
 	return k, err
 }
 
-func (db *DBtype) deleteall(n string) error {
+func (db *DBtype) Deleteall(n string) error {
 	var err error
 	var sq []string
 	// remove from database
@@ -508,7 +508,7 @@ func (db *DBtype) deleteall(n string) error {
 	}
 	return err
 }
-func (db *DBtype) updatedetails(nanostamp string, mname string) string {
+func (db *DBtype) Updatedetails(nanostamp string, mname string) string {
 	var n1 []string
 	var err error
 	var d string
@@ -617,4 +617,30 @@ func (db *DBtype) Pruning() error {
 		}
 	}
 	return nil
+}
+func (db *DBtype) UpdateMeasurementNameNote(ID string, mname string,note string) error {
+	var sq string
+	var err error
+	sq = "UPDATE tblMain SET mname='" + mname + "' WHERE nanostamp=" + ID
+	db.statement, err = db.conn.Prepare(sq) // Prepare SQL Statement
+	if err != nil {
+		log.Println("#2 prepare failed: >> ", err.Error())
+		return err
+	}
+	_, err = db.statement.Exec() // Execute SQL Statements
+	if err != nil {
+		log.Println("#3 exec failed: >> ", err.Error())
+		return err
+	}
+	sq = "UPDATE tblMain SET note='" + note + "' WHERE nanostamp=" + ID
+	db.statement, err = db.conn.Prepare(sq) // Prepare SQL Statement
+	if err != nil {
+		log.Println("#2 prepare failed: >> ", err.Error())
+		return err
+	}
+	_, err = db.statement.Exec() // Execute SQL Statements
+	if err != nil {
+		log.Println("#3 exec failed: >> ", err.Error())
+	}
+	return err
 }

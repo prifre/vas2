@@ -1,4 +1,4 @@
-package main
+package vascharts
 
 // external functions:
 // Setupcharts - destroys old chars & setups new...

@@ -6,7 +6,7 @@ import (
 	"log"
 	"os"
 
-	"fyne.io/fyne"
+	"fyne.io/fyne/v2"
 )
 
 // contains preferences for setting up all paths
@@ -48,7 +48,7 @@ func Setupfiles() {
 	var err error
 	fyne.CurrentApp().Preferences().SetString("homedir", fmt.Sprintf("%s", GetHomeDir()))
 	fyne.CurrentApp().Preferences().SetString("dbfilename", fmt.Sprintf("%s%c%s", GetHomeDir(), os.PathSeparator, "vasdatabase.db"))
-	fyne.CurrentApp().Preferences().SetString("groupsfile", fmt.Sprintf("%s%c%s", GetHomeDir(), os.PathSeparator, "groups.txt"))
+	fyne.CurrentApp().Preferences().SetString("excelfile", fmt.Sprintf("%s%c%s", GetHomeDir(), os.PathSeparator, "vas.xlsx"))
 	fyne.CurrentApp().Preferences().SetString("historyfile", fmt.Sprintf("%s%c%s", GetHomeDir(), os.PathSeparator, "history.txt"))
 	fyne.CurrentApp().Preferences().SetString("pfsmsdb", fmt.Sprintf("%s%c%s", GetHomeDir(), os.PathSeparator, "pfsms.db"))
 	fyne.CurrentApp().Preferences().SetString("pfsmslog", fmt.Sprintf("%s%c%s", GetHomeDir(), os.PathSeparator, "pfsms.log"))

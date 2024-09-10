@@ -38,7 +38,6 @@ func (f1 *ftptype) Ftplogin() error {
 	}
 	return nil
 }
-
 func (f1 *ftptype) Ftplogout() error {
 	var err error
 	if f1.client == nil {
@@ -51,7 +50,6 @@ func (f1 *ftptype) Ftplogout() error {
 	}
 	return nil
 }
-
 func (f1 *ftptype) Ftpupload(remote_name string, buf bytes.Buffer) error {
 	// gets ftp-file from server and saves locally
 	var err error

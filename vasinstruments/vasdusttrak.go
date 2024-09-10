@@ -216,7 +216,8 @@ func (dt *DustTraktype) DustTrakstop() error {
 func SimulatedDustTrak() int32 {
 	return rand.Int31n(1000)
 }
-func (dt *DustTraktype) GetDustTrakinfo() string {
+func (dt *DustTraktype) GetDustTrakinfo(port string) string {
+	dt.DustTrakport=port
 	dt.tcpdusttrakopen()
 	var t, reply string
 	reply, _ = dt.tcpcommand("MSTOP") // stop measuring

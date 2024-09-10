@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image/color"
 	"strings"
+	"vas/vasinstruments"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -12,18 +13,17 @@ import (
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
-	"github.com/prifre/vas2/instruments"
 	"golang.org/x/image/colornames"
 )
 
-func (g *game) setStrokeColor(c int, cc color.Color) {
+func SetStrokeColor(c int, cc color.Color) {
 	r1, g1, b1, a1 := cc.RGBA()
 	fyne.CurrentApp().Preferences().SetInt(fmt.Sprintf("%vStrokeColorR", c), int(r1))
 	fyne.CurrentApp().Preferences().SetInt(fmt.Sprintf("%vStrokeColorG", c), int(g1))
 	fyne.CurrentApp().Preferences().SetInt(fmt.Sprintf("%vStrokeColorB", c), int(b1))
 	fyne.CurrentApp().Preferences().SetInt(fmt.Sprintf("%vStrokeColorA", c), int(a1))
 }
-func (g *game) getStrokeColor(c int) color.Color {
+func GetStrokeColor(c int) color.Color {
 	var cc color.Color
 	r2, g2, b2, a2 := ChartColors[c].RGBA()
 	r1 := uint8(fyne.CurrentApp().Preferences().IntWithFallback(fmt.Sprintf("%vStrokeColorR", c), int(r2)))
@@ -85,7 +85,7 @@ func DoSettings(g *game) error {
 	chkautostart.SetChecked(fyne.CurrentApp().Preferences().BoolWithFallback("autostartmeasuring", true))
 
 	r1 := canvas.NewRectangle(colornames.Green)
-	r1.FillColor = g.getStrokeColor(2)
+	r1.FillColor = GetStrokeColor(2)
 	b1 := widget.NewButton("AeroTrak line color:", func() {
 		picker := dialog.NewColorPicker("AeroTrak", "Line Color", func(c color.Color) {
 			r1.FillColor = c
@@ -95,7 +95,7 @@ func DoSettings(g *game) error {
 		picker.Show()
 	})
 	r2 := canvas.NewRectangle(colornames.White)
-	r2.FillColor = g.getStrokeColor(1)
+	r2.FillColor = GetStrokeColor(1)
 	b2 := widget.NewButton("DustTrak line color:", func() {
 		picker := dialog.NewColorPicker("DustTrak", "Line Color", func(c color.Color) {
 			r2.FillColor = c
@@ -105,7 +105,7 @@ func DoSettings(g *game) error {
 		picker.Show()
 	})
 
-	r3 := canvas.NewRectangle(g.getStrokeColor(0))
+	r3 := canvas.NewRectangle(GetStrokeColor(0))
 	b3 := widget.NewButton("PTrak line color:", func() {
 		picker := *dialog.NewColorPicker("PTrak", "Line Color", func(c color.Color) {
 			r3.FillColor = c
@@ -130,7 +130,6 @@ func DoSettings(g *game) error {
 	slideav.Refresh()
 
 	documentpath := widget.NewEntry()
-	documentpath.SetText(fyne.CurrentApp().Preferences().StringWithFallback("documentpath", g.getdocumentpath().Path()))
 	documentpath.MultiLine = true
 
 	documentpathbutton := widget.NewButton("Set Path", func() {
@@ -151,7 +150,6 @@ func DoSettings(g *game) error {
 		fyne.CurrentApp().Preferences().SetInt("datapoints", int(f1))
 		g.datapoints = int(f1)
 		fyne.CurrentApp().Preferences().SetInt("averagepoints", int(f1av))
-		g.averagepoints = int(f1av)
 		if fyne.CurrentApp().Preferences().Bool("mydebug") != chkmydebug.Checked {
 			fyne.CurrentApp().Preferences().SetBool("mydebug", chkmydebug.Checked)
 			g.setuplogging() // since myDebug may have changed.
@@ -171,24 +169,21 @@ func DoSettings(g *game) error {
 		}
 		switch countunitspopup.Selected {
 		case "Δ #":
-			fyne.CurrentApp().Preferences().SetInt("countunits", 0)
-			g.countunits = 1
-		case "Δ #/m³":
 			fyne.CurrentApp().Preferences().SetInt("countunits", 1)
-			g.countunits = 21201
+		case "Δ #/m³":
+			fyne.CurrentApp().Preferences().SetInt("countunits", 21201)
 		case "Δ #/ft³":
-			fyne.CurrentApp().Preferences().SetInt("countunits", 2)
-			g.countunits = 600
+			fyne.CurrentApp().Preferences().SetInt("countunits", 600)
 		}
 		fyne.CurrentApp().Preferences().SetString("documentpath", documentpath.Text)
-		g.setStrokeColor(0, r3.FillColor)
-		g.setStrokeColor(1, r2.FillColor)
-		g.setStrokeColor(2, r1.FillColor)
-		g.setStrokeColor(3, r1.FillColor)
-		g.setStrokeColor(4, r1.FillColor)
-		g.setStrokeColor(5, r1.FillColor)
-		g.setStrokeColor(6, r1.FillColor)
-		g.setStrokeColor(7, r1.FillColor)
+		SetStrokeColor(0, r3.FillColor)
+		SetStrokeColor(1, r2.FillColor)
+		SetStrokeColor(2, r1.FillColor)
+		SetStrokeColor(3, r1.FillColor)
+		SetStrokeColor(4, r1.FillColor)
+		SetStrokeColor(5, r1.FillColor)
+		SetStrokeColor(6, r1.FillColor)
+		SetStrokeColor(7, r1.FillColor)
 		settings.Close()
 	})
 	cancelbutton := widget.NewButton("Cancel", func() {
@@ -295,15 +290,15 @@ func DoManualSettings(g *game) error {
 	})
 	f2b1 := widget.NewButton("Info", func() {
 		port:= fyne.CurrentApp().Preferences().StringWithFallback("AeroTrak", "")
-		r, _ := instruments.ModbusAeroTrakgetinfo(port)
+		r, _ := vasinstruments.ModbusAeroTrakgetinfo(port)
 		dialog.ShowInformation("AeroTrak info", r, msettings)
 	})
 	f2b2 := widget.NewButton("Info", func() {
-		instruments.DustTrakport = fyne.CurrentApp().Preferences().StringWithFallback("DustTrak", "")
-		dialog.ShowInformation("DustTrak info", instruments.GetDustTrakinfo(), msettings)
+		port := fyne.CurrentApp().Preferences().StringWithFallback("DustTrak", "")
+		dialog.ShowInformation("DustTrak info", new(vasinstruments.DustTraktype).GetDustTrakinfo(port), msettings)
 	})
 	f2b3 := widget.NewButton("Info", func() {
-		instruments.PTrakport = fyne.CurrentApp().Preferences().StringWithFallback("PTrak", "")
+		new(vasinstruments.PTraktype).PTrakport = fyne.CurrentApp().Preferences().StringWithFallback("PTrak", "")
 		dialog.ShowInformation("PTrak info", "It's a PTrak, ok?", msettings)
 	})
 	okbutton := widget.NewButton("OK", func() {

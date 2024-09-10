@@ -1,23 +1,21 @@
 package ui
 
 import (
-	"fmt"
 	"log"
-	"path/filepath"
 	"strings"
+	"vas/vasdatabase"
 
-	"fyne.io/fyne"
-	"fyne.io/fyne/layout"
-	"fyne.io/fyne/theme"
+	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/data/binding"
 	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/layout"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
 
 // Maintainance for measurements
 func DoMeasurements() error {
-	var sq string
 	var d1, nanostring, n1 []string
 	var c0, c2 fyne.Container
 	var err error
@@ -27,7 +25,7 @@ func DoMeasurements() error {
 		w.Close()
 		w = nil
 	})
-	d1, err = new(database).Getsql("SELECT mname FROM tblMain ORDER BY nanostamp ASC")
+	d1, err = new(vasdatabase.DBtype).Getsql("SELECT mname FROM tblMain ORDER BY nanostamp ASC")
 	if err != nil {
 		log.Println("#1 handlemeasurements SELECT ", err.Error())
 	}
@@ -36,7 +34,7 @@ func DoMeasurements() error {
 	}
 	srclist := binding.BindStringList(&d1)
 	details := widget.NewLabel("")
-	nanostring, err = g.d.Getsql("SELECT nanostamp FROM tblMain ORDER BY nanostamp ASC")
+	nanostring, err = new(vasdatabase.DBtype).Getsql("SELECT nanostamp FROM tblMain ORDER BY nanostamp ASC")
 	if err != nil {
 		log.Println("#1 handlemeasurements SELECT ", err.Error())
 	}
@@ -50,7 +48,7 @@ func DoMeasurements() error {
 	})
 	list.OnSelected = func(id int) {
 		myID = id
-		details.Text = new(database).updatedetails(nanostring[myID], d1[myID])
+		details.Text = new(vasdatabase.DBtype).Updatedetails(nanostring[myID], d1[myID])
 		details.Refresh()
 	}
 	wt := widget.NewToolbar(
@@ -64,7 +62,7 @@ func DoMeasurements() error {
 					note := widget.NewEntry()
 					note.MultiLine = true
 					// GET NOTE FROM DB
-					n1, err = new(database).Getsql("SELECT note FROM tblMain WHERE nanostamp=" + nanostring[myID])
+					n1, err = new(vasdatabase.DBtype).Getsql("SELECT note FROM tblMain WHERE nanostamp=" + nanostring[myID])
 					if err != nil {
 						log.Print("Getting note failed", err.Error())
 						return
@@ -74,30 +72,10 @@ func DoMeasurements() error {
 						widget.NewFormItem("Measurement name:", d),
 						widget.NewFormItem("Note: ", note)}, func(bool) {
 						d1[myID] = d.Text
-						sq = "UPDATE tblMain SET mname='" + d.Text + "' WHERE nanostamp=" + nanostring[myID]
-						db.statement, err = db.conn.Prepare(sq) // Prepare SQL Statement
-						if err != nil {
-							log.Println("#2 prepare failed: >> ", err.Error())
-							return
-						}
-						_, err = db.statement.Exec() // Execute SQL Statements
-						if err != nil {
-							log.Println("#3 exec failed: >> ", err.Error())
-							return
-						}
-						sq = "UPDATE tblMain SET note='" + note.Text + "' WHERE nanostamp=" + nanostring[myID]
-						db.statement, err = db.conn.Prepare(sq) // Prepare SQL Statement
-						if err != nil {
-							log.Println("#2 prepare failed: >> ", err.Error())
-							return
-						}
-						_, err = db.statement.Exec() // Execute SQL Statements
-						if err != nil {
-							log.Println("#3 exec failed: >> ", err.Error())
-							return
-						}
+						// update measurementname based on nanostampID
+						new(vasdatabase.DBtype).UpdateMeasurementNameNote(nanostring[myID],d.Text,note.Text)
 						srclist.Reload()
-						details.Text = db.updatedetails(nanostring[myID], d1[myID])
+						details.Text =new(vasdatabase.DBtype).Updatedetails(nanostring[myID], d1[myID])
 						details.Refresh()
 					}, w)
 				}
@@ -107,11 +85,11 @@ func DoMeasurements() error {
 			func() {
 				// Remove the element at index i from a.
 				if myID > -1 && len(d1) > 0 {
-					if nanostring[myID] == fmt.Sprintf("%v", g.d.nanostamp) && g.d.nanostamp > 0 {
-						dialog.ShowInformation("Warning", "Active measurement cannot be removed!", w)
-						return
-					}
-					g.d.deleteall(nanostring[myID])
+					// if nanostring[myID] == fmt.Sprintf("%v", g.d.nanostamp) && g.d.nanostamp > 0 {
+					// 	dialog.ShowInformation("Warning", "Active measurement cannot be removed!", w)
+					// 	return
+					// }
+					new(vasdatabase.DBtype).Deleteall(nanostring[myID])
 					if myID < len(d1) {
 						copy(d1[myID:], d1[myID+1:])                 // Shift a[i+1:] left one index.
 						copy(nanostring[myID:], nanostring[myID+1:]) // Shift a[i+1:] left one index.
@@ -134,9 +112,8 @@ func DoMeasurements() error {
 			// Export selected measurement to to Excel!!!
 			func() {
 				if myID > -1 {
-					g.getdocumentpath()
-					fn := filepath.Join(g.getdocumentpath().Path(), "vas.xlsx")
-					g.d.exporttoexcel(nanostring[myID], fn)
+					fn := fyne.CurrentApp().Preferences().String("excelfile")
+					new(vasdatabase.DBtype).Exporttoexcel(nanostring[myID], fn)
 					log.Println("Exported to Excel: " + fn)
 					dialog.ShowInformation("Export to Excel!", "Export finished ok.", w)
 				} else {
@@ -146,8 +123,7 @@ func DoMeasurements() error {
 		//Start Measurement
 		widget.NewToolbarAction(theme.SearchReplaceIcon(),
 			func() {
-				db.nanostamp = Getint64(nanostring[myID])
-				db.Pruning(g)
+				new(vasdatabase.DBtype).Pruning()
 				m := "Pruning done for selected record.\n"
 				m = m + "Did remove records based on setting 'Save every' so only averages are saved.\n"
 				m = m + "Normally vas saves data every second if possible. This creates too much data\n"
@@ -160,8 +136,7 @@ func DoMeasurements() error {
 			func() {
 				if nanostring[myID] > "" {
 					fyne.CurrentApp().Preferences().SetBool("autostart", true)
-					g.d.nanostamp = Getint64(nanostring[myID])
-					g.StartMeasurement()
+					new(Measuretype).StartMeasurement()
 					w.Close()
 				}
 			}),

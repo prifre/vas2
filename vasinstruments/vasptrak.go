@@ -31,7 +31,7 @@ type PTraktype struct {
 	mdata           int64
 }
 
-func (pt *PTraktype) openPTrak() io.ReadWriteCloser {
+func (pt *PTraktype) OpenPTrak() io.ReadWriteCloser {
 	var port io.ReadWriteCloser
 	var err error
 	// Opens Windows Registry
@@ -55,7 +55,7 @@ func (pt *PTraktype) GetPTrakdata() int32 {
 	var oldv int
 	var r int
 	if pt.PTrakconnection == nil {
-		pt.PTrakconnection = pt.openPTrak()
+		pt.PTrakconnection = pt.OpenPTrak()
 		if pt.PTrakconnection == nil {
 			log.Println("#2 getPTrakdata could not open PTrak")
 		}
