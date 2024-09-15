@@ -19,6 +19,16 @@ import (
 )
 
 const datapointsmax = 80
+const (
+	linemarginsY    = .72
+	linemarginsX    = .68
+	titledown       = .001
+	axismarg        = 0.12
+	textmargin      = 1.3 //position of axis - (size of textwidth/2) * textmargin
+	axisticks       = 5
+	ticksize        = 3.5
+	textsizedivider = 40
+)
 type LineChart struct {
 	mChart  fyne.Container
 	mBox    canvas.Rectangle
@@ -41,17 +51,17 @@ type LineChart struct {
 	StrokeColor color.Color
 	StrokeWidth float32
 }
+// Charts!
+var ChartTitles = [8]string{
+	"   Nano Particles\t0.02-1.0µm (#/cm³)",
+	"Weight Particles\t          µg/m³",
+	"Fine Particles\t   0.3-0.5µm",
+	"Fine Particles\t   0.5-1.0µm",
+	"Fine Particles\t   1.0-3.0µm",
+	"Coarse Particles\t   3.0-5.0µm",
+	"Coarse Particles\t   5.0-10.0µm",
+	"Coarse Particles\t     >10.0µm"}
 
-const (
-	linemarginsY    = .72
-	linemarginsX    = .68
-	titledown       = .001
-	axismarg        = 0.12
-	textmargin      = 1.3 //position of axis - (size of textwidth/2) * textmargin
-	axisticks       = 5
-	ticksize        = 3.5
-	textsizedivider = 40
-)
 
 // main Line chart drawing routine
 // takes lc.mX[] and lc.mY[] and draws
@@ -97,7 +107,7 @@ func Updatecharts(chart []LineChart,mdata []int) error {
 			if chart[c].gotpoints > datapoints {
 				chart[c].gotpoints = datapoints
 			}
-			// chart[c].mY[chart[c].gotpoints-1] = float32(g.d.mdata[c])
+			// chart[c].mY[chart[c].gotpoints-1] = float32(g.d.Mdata[c])
 			chart[c].mValue[chart[c].gotpoints-1] = newdata
 			if averagepoints > 1 {
 				avpoints := averagepoints

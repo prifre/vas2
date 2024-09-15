@@ -1,35 +1,19 @@
 package ui
 
 import (
-	"bytes"
-	"errors"
 	"fmt"
-	"image/color"
-	"io"
 	"log"
-	"net"
-	"net/url"
 	"os"
 	"path/filepath"
-	"runtime"
-	"strconv"
-	"strings"
 	"vas/general"
-	"vas/vascharts"
 	"vas/vasdatabase"
-	"vas/vasftp"
 
 	"time"
 
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/canvas"
-	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/driver/desktop"
 
 	//	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
-	"fyne.io/fyne/v2/storage"
-	"golang.org/x/image/colornames"
 )
 
 // application menu
@@ -40,30 +24,19 @@ func (g *game) BuildMenu() *fyne.MainMenu {
 	var msg string
 	mFile := fyne.NewMenu("File",
 		fyne.NewMenuItem("Setup instruments...", func() {
-			g.StopMeasurement()
-			// cnf := dialog.NewConfirm("Setup of instruments", "Search for instruments?", func(reply bool) {
-			// 	if reply {
-			g.SetupInstruments()
-			// 	}
-			// }, g.window)
-			// cnf.SetDismissText("No")
-			// cnf.SetConfirmText("Yes")
-			// cnf.Show()
+			DoSetupInstruments()
 		}),
 		fyne.NewMenuItem("FTP settings...", func() {
-			g.StopMeasurement()
 			DoFTPSettings(g)
 		}),
 		fyne.NewMenuItem("Settings...", func() {
-			g.StopMeasurement()
 			DoSettings(g)
 		}),
 		fyne.NewMenuItem("Manual Settings...", func() {
-			g.StopMeasurement()
 			DoManualSettings(g)
 		}),
 		fyne.NewMenuItem("Special Aerotrak Settings...", func() {
-			g.StopMeasurement()
+			g.measure.StopMeasurement()
 			DoAeroTrakSettings(g)
 		}))
 	// mEdit := fyne.NewMenu("Edit",
@@ -72,18 +45,18 @@ func (g *game) BuildMenu() *fyne.MainMenu {
 	// 	fyne.NewMenuItem("Paste", func() { dialog.ShowInformation("Paste? ", "Not implemented, sorry!", g.window) }))
 	mMeasurements := fyne.NewMenu("Measurements",
 		fyne.NewMenuItem("Start Measuring", func() {
-			g.StartMeasurement()
+			g.measure.StartMeasurement()
 		}),
 		fyne.NewMenuItem("End Measuring", func() {
-			g.StopMeasurement()
+			g.measure.StopMeasurement()
 			new(vasdatabase.DBtype).Closemeasurement()
-			log.Printf("Measurement '%v' (%v) stopped", g.d.mname, g.d.nanostamp)
-			fyne.CurrentApp().Preferences().SetString("nanostamp", "0")
-			g.d.mname = ""
+			// log.Printf("Measurement '%v' (%v) stopped", g.d.Mname, g.d.Nanostamp)
+			// fyne.CurrentApp().Preferences().SetString("nanostamp", "0")
+			// g.d.Mname = ""
 		}),
 		fyne.NewMenuItemSeparator(),
 		fyne.NewMenuItem("Measurements maintainance", func() {
-			g.StopMeasurement()
+			g.measure.StopMeasurement()
 			DoMeasurements()
 		}),
 		fyne.NewMenuItem("Save screen", func() {
@@ -102,14 +75,14 @@ func (g *game) BuildMenu() *fyne.MainMenu {
 					Doftp(fn)
 				}
 			}
-			fn = general.Doscreenshot()
+			fn = general.Doscreenshot(g.window)
 			if fn > "" {
 				Doftp(fn)
 			}
 		}),
 		fyne.NewMenuItem("Export all measurements to textfile", func() {
-			g.StopMeasurement()
-			msg, err = g.d.Exporttotext(g)
+			g.measure.StopMeasurement()
+			msg, err = new(vasdatabase.DBtype).Exporttotext()
 			if err != nil {
 				dialog.ShowInformation("Error exporting: ", msg, g.window)
 			} else {
@@ -117,8 +90,8 @@ func (g *game) BuildMenu() *fyne.MainMenu {
 			}
 		}),
 		fyne.NewMenuItem("Export current measurement to textfile", func() {
-			g.StopMeasurement()
-			msg, err = g.d.Exportonetotext(g)
+			g.measure.StopMeasurement()
+			msg, err = new(vasdatabase.DBtype).Exportonetotext()
 			if err != nil {
 				dialog.ShowInformation("Error exporting: ", msg, g.window)
 			} else {
@@ -129,11 +102,11 @@ func (g *game) BuildMenu() *fyne.MainMenu {
 		// 	DorepairDatabase(g.d, g.app)
 		// }),
 		fyne.NewMenuItem("Remove redundant measurements", func() {
-			g.StopMeasurement()
-			g.d.Pruning(g)
+			g.measure.StopMeasurement()
+			new(vasdatabase.DBtype).Pruning()
 		}),
 		fyne.NewMenuItem("Open storage location", func() {
-			openstoragelocation(g)
+			Openstoragelocation(g)
 		}))
 	mHelp := fyne.NewMenu("Help",
 		fyne.NewMenuItem("About...", func() {

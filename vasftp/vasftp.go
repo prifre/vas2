@@ -9,36 +9,36 @@ import (
 	"github.com/jlaffaye/ftp"
 )
 
-type ftptype struct {
+type Ftptype struct {
 	client      *ftp.ServerConn
-	ftpserver   string
-	ftpusername string
-	ftppassword string
-	ftpdir      string
+	Ftpserver   string
+	Ftpusername string
+	Ftppassword string
+	Ftpdir      string
 }
 
-func (f1 *ftptype) Ftplogin() error {
+func (f1 *Ftptype) Ftplogin() error {
 	var err error
-	if f1.ftpserver == "" || f1.ftpusername == "" {
+	if f1.Ftpserver == "" || f1.Ftpusername == "" {
 		return fmt.Errorf("login details not set")
 	}
-	if f1.ftpserver[len(f1.ftpserver)-3:] != ":21" && !strings.Contains(f1.ftpserver, ":") {
-		f1.ftpserver = f1.ftpserver + ":21"
-		log.Print("Adding port info to FTP-server:", f1.ftpserver)
+	if f1.Ftpserver[len(f1.Ftpserver)-3:] != ":21" && !strings.Contains(f1.Ftpserver, ":") {
+		f1.Ftpserver = f1.Ftpserver + ":21"
+		log.Print("Adding port info to FTP-server:", f1.Ftpserver)
 	}
-	f1.client, err = ftp.Dial(f1.ftpserver)
+	f1.client, err = ftp.Dial(f1.Ftpserver)
 	if err != nil {
 		log.Print("#Login ftp.Dial failed:", err.Error())
 		return err
 	}
-	err = f1.client.Login(f1.ftpusername, f1.ftppassword)
+	err = f1.client.Login(f1.Ftpusername, f1.Ftppassword)
 	if err != nil {
 		log.Print("#Login username/password problem:", err.Error())
 		return err
 	}
 	return nil
 }
-func (f1 *ftptype) Ftplogout() error {
+func (f1 *Ftptype) Ftplogout() error {
 	var err error
 	if f1.client == nil {
 		log.Println("not logged in")
@@ -50,7 +50,7 @@ func (f1 *ftptype) Ftplogout() error {
 	}
 	return nil
 }
-func (f1 *ftptype) Ftpupload(remote_name string, buf bytes.Buffer) error {
+func (f1 *Ftptype) Ftpupload(remote_name string, buf bytes.Buffer) error {
 	// gets ftp-file from server and saves locally
 	var err error
 	if f1.client == nil {

@@ -23,7 +23,7 @@ import (
 )
 
 type DustTraktype struct {
-	simulateDustTrak bool
+	SimulateDustTrak bool
 	DustTrakrunning  bool
 	DustTrakconn     net.Conn
 	DustTraklastin   int

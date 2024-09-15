@@ -21,7 +21,7 @@ import (
 )
 
 type AeroTraktype struct {
-	simulateAeroTrak  bool
+	SimulateAeroTrak  bool
 	AeroTrakrunning   bool
 	AeroTrakclient    modbus.Client
 	AeroTrakhandler   *modbus.TCPClientHandler

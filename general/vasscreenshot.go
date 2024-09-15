@@ -19,15 +19,15 @@ func Doscreenshot(currentwindow fyne.Window) string {
 	t = strings.Replace(t, "-", "", 99)
 	t = strings.Replace(t, ":", "", 99)
 	fn := t[:13] + ".png"
-	m := 28
+	m1 := 28
 	upLeft := image.Point{0, 0}
-	lowRight := image.Point{img.Bounds().Max.X, img.Bounds().Max.Y - m}
+	lowRight := image.Point{img.Bounds().Max.X, img.Bounds().Max.Y - 1}
 	img2 := image.NewRGBA(image.Rectangle{upLeft, lowRight})
-	if m > 0 {
+	if m1 > 0 {
 		for y := 0; y < img.Bounds().Max.Y; y++ {
 			for x := 0; x < img.Bounds().Max.X; x++ {
-				if y > m {
-					img2.Set(x, y-m-1, img.At(x, y))
+				if y > m1 {
+					img2.Set(x, y-m1-1, img.At(x, y))
 				}
 			}
 		}

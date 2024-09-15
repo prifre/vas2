@@ -11,12 +11,11 @@ TCP routines to handle TSI AeroTrak
 import (
 	"fmt"
 	"log"
-	"strings"
+	"vas/vasinstruments"
 
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/dialog"
 )
-func SetupInstruments() {
+func DoSetupInstruments() {
 	var err error
 	var s string
 	log.Println("Searching for TSI network instruments DustTrak & AeroTrak")
@@ -29,13 +28,13 @@ func SetupInstruments() {
 		fyne.CurrentApp().Preferences().SetString("DustTrak", "")
 		fyne.CurrentApp().Preferences().SetString("PTrak", "")
 	}
-	_, err = FindPTrak()
+	_, err = new(vasinstruments.PTraktype).FindPTrak()
 	if err != nil {
 		log.Println("#1 SetupInstruments:FindPTrak:\n", err.Error())
 	}
-	if g.MyTSIscanner() != nil {
-		log.Println("#2 SetupInstruments:MyTSIscanner:\n", err.Error())
-	}
+	// if g.MyTSIscanner() != nil {
+	// 	log.Println("#2 SetupInstruments:MyTSIscanner:\n", err.Error())
+	// }
 	if fyne.CurrentApp().Preferences().String("AeroTrak") > "" {
 		s += "\nAeroTrak: " + fyne.CurrentApp().Preferences().String("AeroTrak")
 	}
@@ -45,10 +44,10 @@ func SetupInstruments() {
 	if fyne.CurrentApp().Preferences().String("PTrak") > "" {
 		s += "\nPTrak: " + fyne.CurrentApp().Preferences().String("PTrak")
 	}
-	if s == "" {
-		dialog.ShowInformation("", "No instruments found.", g.window)
-	} else {
-		log.Println("Finished autosetup of instruments: " + s)
-		dialog.ShowInformation("Found instruments: ", strings.Replace(s, ", ", "\n", -1), g.window)
-	}
+	// if s == "" {
+	// 	dialog.ShowInformation("", "No instruments found.", g.window)
+	// } else {
+	// 	log.Println("Finished autosetup of instruments: " + s)
+	// 	dialog.ShowInformation("Found instruments: ", strings.Replace(s, ", ", "\n", -1), g.window)
+	// }
 }

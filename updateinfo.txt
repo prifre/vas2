@@ -163,11 +163,11 @@ New menu item: Help->Open the VISIBLE AIR SYSTEM webpage!
 Version 0.19
 First release to Anders...
 - measuring with AeroTrak, DustTrak, PTrak
-- simulated measuring with instruments
+- Simulated measuring with instruments
 - saving of measurements to database
 - exporting of database to textfiles
 - updating of linecharts in realtime
 - some settings:
 -- datapoints to show per graph
 -- colors for line graph
--- simulated, autostart, synchronized
+-- Simulated, autostart, synchronized

@@ -29,12 +29,12 @@ type DBtype struct {
 	conn         *sql.DB
 	statement    *sql.Stmt
 	reply        sql.Result
-	mname        string
-	tstamp       string
+	Tstamp       string
 	//	tend      string
-	nanostamp int64
-	note      string
-	mdata     [8]int32
+	Nanostamp int64
+	Mname        string
+	Note      string
+	Mdata     [8]int32
 }
 
 // add measurement, based on table and data as []int32
@@ -47,25 +47,25 @@ func (db *DBtype) Addmeasurement() error {
 	if err != nil {
 		return errors.New(fmt.Sprintln("#1 AddMeasurement: ", err.Error()))
 	}
-	if db.mdata[0] > -1 {
-		sq = append(sq, fmt.Sprintf("INSERT INTO tblPTrak (nanostamp,tstamp,mdata) VALUES (%v,'%v',%v) ", db.nanostamp, db.tstamp, db.mdata[0]))
+	if db.Mdata[0] > -1 {
+		sq = append(sq, fmt.Sprintf("INSERT INTO tblPTrak (nanostamp,tstamp,mdata) VALUES (%v,'%v',%v) ", db.Nanostamp, db.Tstamp, db.Mdata[0]))
 	}
-	if db.mdata[1] > -1 {
-		sq = append(sq, fmt.Sprintf("INSERT INTO tblDustTrak (nanostamp,tstamp,mdata) VALUES (%v,'%v',%v) ", db.nanostamp, db.tstamp, db.mdata[1]))
+	if db.Mdata[1] > -1 {
+		sq = append(sq, fmt.Sprintf("INSERT INTO tblDustTrak (nanostamp,tstamp,mdata) VALUES (%v,'%v',%v) ", db.Nanostamp, db.Tstamp, db.Mdata[1]))
 	}
-	if db.mdata[2] > -1 {
+	if db.Mdata[2] > -1 {
 		sq = append(sq, fmt.Sprintf("INSERT INTO tblAeroTrak (nanostamp,tstamp,ch1,ch2,ch3,ch4,ch5,ch6) VALUES (%v,'%v',%v,%v,%v,%v,%v,%v) ",
-			db.nanostamp, db.tstamp, db.mdata[2], db.mdata[3], db.mdata[4], db.mdata[5], db.mdata[6], db.mdata[7]))
+			db.Nanostamp, db.Tstamp, db.Mdata[2], db.Mdata[3], db.Mdata[4], db.Mdata[5], db.Mdata[6], db.Mdata[7]))
 	}
 	if len(sq) == 0 {
 		var n1 []string
-		n1, err = db.Getsql(fmt.Sprintf("SELECT mname FROM tblMain WHERE nanostamp=%v ", db.nanostamp))
+		n1, err = db.Getsql(fmt.Sprintf("SELECT mname FROM tblMain WHERE nanostamp=%v ", db.Nanostamp))
 		if err != nil {
 			return errors.New(fmt.Sprint("#2 AddMeasurement: ", err.Error()))
 		}
 		if n1 == nil || n1[0] == "0" || n1[0] == "" {
 			sq = append(sq, fmt.Sprintf("INSERT INTO tblMain (nanostamp,tstamp,mname,note) VALUES (%v,'%v','%v','%v')",
-				db.nanostamp, db.tstamp, db.mname, db.note))
+				db.Nanostamp, db.Tstamp, db.Mname, db.Note))
 		}
 
 	}
@@ -123,7 +123,7 @@ func (db *DBtype) Setupdb() error {
 func (db *DBtype) Closemeasurement() error {
 	var sq string
 	var err error
-	sq = fmt.Sprintf("UPDATE tblMain SET tend='%v' WHERE nanostamp=%v", fmt.Sprintf("%v", time.Now().Format(time.RFC3339)), db.nanostamp)
+	sq = fmt.Sprintf("UPDATE tblMain SET tend='%v' WHERE nanostamp=%v", fmt.Sprintf("%v", time.Now().Format(time.RFC3339)), db.Nanostamp)
 	err = db.Opendb()
 	if err != nil {
 		log.Println("#1 Closemeasurement open Failed", err.Error())
@@ -321,7 +321,7 @@ func (db *DBtype) Exportonetotext() (string, error) {
 	var s []string
 	var tbl []string = []string{"tblAeroTrak", "tblDustTrak", "tblPTrak", "tblMain"}
 	dir := fyne.CurrentApp().Preferences().String("homedir")
-	if db.nanostamp == 0 {
+	if db.Nanostamp == 0 {
 		return "No current measurement, no data exported.", err
 	}
 	err = db.Opendb()
@@ -330,7 +330,7 @@ func (db *DBtype) Exportonetotext() (string, error) {
 		return "", err
 	}
 	for i := 0; i < len(tbl); i++ {
-		s, err = db.Getsql(fmt.Sprintf("SELECT COUNT(*) from %v WHERE nanostamp=%v", tbl[i], db.nanostamp))
+		s, err = db.Getsql(fmt.Sprintf("SELECT COUNT(*) from %v WHERE nanostamp=%v", tbl[i], db.Nanostamp))
 		cnt = append(cnt, s[0])
 		if err != nil {
 			return "", err
@@ -342,7 +342,7 @@ func (db *DBtype) Exportonetotext() (string, error) {
 			log.Println("#2 Export Could not create textfile", err.Error())
 			return "", err
 		}
-		sq = fmt.Sprintf("SELECT * FROM %v WHERE nanostamp=%v", tbl[i], db.nanostamp)
+		sq = fmt.Sprintf("SELECT * FROM %v WHERE nanostamp=%v", tbl[i], db.Nanostamp)
 		rows, err := db.conn.Query(sq)
 		if err != nil {
 			log.Println("#3 Export query error ", err.Error())
@@ -414,7 +414,7 @@ func (db *DBtype) Exportonetotext() (string, error) {
 		log.Println("Problems exporting database to text ", err.Error())
 		return "", err
 	} else {
-		msg = fmt.Sprintf("All data for measurement %v has been exported to textfiles:\n,", db.nanostamp)
+		msg = fmt.Sprintf("All data for measurement %v has been exported to textfiles:\n,", db.Nanostamp)
 		msg = msg + "tblAeroTrak.txt\n"
 		msg = msg + "tblDustTrak.txt\n"
 		msg = msg + "tblPTrak.txt\n"
@@ -569,10 +569,10 @@ func (db *DBtype) Pruning() error {
 		if tbl[i] == "tblMain" {
 			continue
 		}
-		s, _ = db.Getsql(fmt.Sprintf("SELECT COUNT(*) FROM %v WHERE nanostamp=%v", tbl[i], db.nanostamp))
+		s, _ = db.Getsql(fmt.Sprintf("SELECT COUNT(*) FROM %v WHERE nanostamp=%v", tbl[i], db.Nanostamp))
 		bef, _ := strconv.Atoi(s[0])
 		// fmt.Printf("Number of records in %v = %v\n", tbl[i], bef)
-		// sq = fmt.Sprintf("SELECT SUBSTRING(tstamp,12,8) FROM %v WHERE nanostamp=%v", tbl[i], db.nanostamp)
+		// sq = fmt.Sprintf("SELECT SUBSTRING(tstamp,12,8) FROM %v WHERE nanostamp=%v", tbl[i], db.Nanostamp)
 		// // SUBSTR(tstamp,12,8) == hh:mm:ss
 		// s, _ = db.Getsql(sq)
 		if bef > 0 {
@@ -600,7 +600,7 @@ func (db *DBtype) Pruning() error {
 			case 2: // sample every minute
 				s1 += "SUBSTR(tstamp,18,2)='00'"
 			}
-			sq = fmt.Sprintf("DELETE FROM %v WHERE %v AND nanostamp=%v", tbl[i], s1, db.nanostamp)
+			sq = fmt.Sprintf("DELETE FROM %v WHERE %v AND nanostamp=%v", tbl[i], s1, db.Nanostamp)
 			db.statement, err = db.conn.Prepare(sq) // Prepare SQL Statement
 			if err != nil {
 				log.Println("#1 pruning error ", sq, err.Error())
@@ -611,9 +611,9 @@ func (db *DBtype) Pruning() error {
 				log.Println("#2 pruning error ", db.statement, err.Error())
 				return nil
 			}
-			s, _ = db.Getsql(fmt.Sprintf("SELECT COUNT(*) FROM %v WHERE nanostamp=%v", tbl[i], db.nanostamp))
+			s, _ = db.Getsql(fmt.Sprintf("SELECT COUNT(*) FROM %v WHERE nanostamp=%v", tbl[i], db.Nanostamp))
 			aft, _ := strconv.Atoi(s[0])
-			fmt.Printf("Records for nanostamp %v removed from %v: %v \n", db.nanostamp, tbl[i], bef-aft)
+			fmt.Printf("Records for nanostamp %v removed from %v: %v \n", db.Nanostamp, tbl[i], bef-aft)
 		}
 	}
 	return nil

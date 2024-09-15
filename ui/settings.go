@@ -25,7 +25,9 @@ func SetStrokeColor(c int, cc color.Color) {
 }
 func GetStrokeColor(c int) color.Color {
 	var cc color.Color
-	r2, g2, b2, a2 := ChartColors[c].RGBA()
+	var ChartColors = [8]color.Color{colornames.Green, colornames.Yellow, colornames.Red, colornames.Red,
+		colornames.Red, colornames.Red, colornames.Red, colornames.Red}
+		r2, g2, b2, a2 := ChartColors[c].RGBA()
 	r1 := uint8(fyne.CurrentApp().Preferences().IntWithFallback(fmt.Sprintf("%vStrokeColorR", c), int(r2)))
 	g1 := uint8(fyne.CurrentApp().Preferences().IntWithFallback(fmt.Sprintf("%vStrokeColorG", c), int(g2)))
 	b1 := uint8(fyne.CurrentApp().Preferences().IntWithFallback(fmt.Sprintf("%vStrokeColorB", c), int(b2)))
@@ -54,25 +56,25 @@ func DoSettings(g *game) error {
 	})
 	countunitspopup.SetSelectedIndex(fyne.CurrentApp().Preferences().IntWithFallback("countunits", 0))
 
-	chksimulateAeroTrak := widget.NewCheck("Simulate AeroTrak", func(value bool) {})
-	chksimulateAeroTrak.SetChecked(fyne.CurrentApp().Preferences().BoolWithFallback("SimulateAeroTrak", false))
+	chkSimulateAeroTrak := widget.NewCheck("Simulate AeroTrak", func(value bool) {})
+	chkSimulateAeroTrak.SetChecked(fyne.CurrentApp().Preferences().BoolWithFallback("SimulateAeroTrak", false))
 	if fyne.CurrentApp().Preferences().String("AeroTrak") != "" {
-		chksimulateAeroTrak.SetChecked(false)
-		chksimulateAeroTrak.Disable()
+		chkSimulateAeroTrak.SetChecked(false)
+		chkSimulateAeroTrak.Disable()
 	}
 
-	chksimulateDustTrak := widget.NewCheck("Simulate DustTrak", func(value bool) {})
-	chksimulateDustTrak.SetChecked(fyne.CurrentApp().Preferences().BoolWithFallback("SimulateDustTrak", false))
+	chkSimulateDustTrak := widget.NewCheck("Simulate DustTrak", func(value bool) {})
+	chkSimulateDustTrak.SetChecked(fyne.CurrentApp().Preferences().BoolWithFallback("SimulateDustTrak", false))
 	if fyne.CurrentApp().Preferences().String("DustTrak") != "" {
-		chksimulateDustTrak.SetChecked(false)
-		chksimulateDustTrak.Disable()
+		chkSimulateDustTrak.SetChecked(false)
+		chkSimulateDustTrak.Disable()
 	}
 
-	chksimulatePTrak := widget.NewCheck("Simulate PTrak", func(value bool) {})
-	chksimulatePTrak.SetChecked(fyne.CurrentApp().Preferences().BoolWithFallback("SimulatePTrak", false))
+	chkSimulatePTrak := widget.NewCheck("Simulate PTrak", func(value bool) {})
+	chkSimulatePTrak.SetChecked(fyne.CurrentApp().Preferences().BoolWithFallback("SimulatePTrak", false))
 	if fyne.CurrentApp().Preferences().String("PTrak") != "" {
-		chksimulatePTrak.SetChecked(false)
-		chksimulatePTrak.Disable()
+		chkSimulatePTrak.SetChecked(false)
+		chkSimulatePTrak.Disable()
 	}
 
 	chksync := widget.NewCheck("Synchronized measuring", func(value bool) {})
@@ -148,15 +150,15 @@ func DoSettings(g *game) error {
 
 	okbutton := widget.NewButton("OK", func() {
 		fyne.CurrentApp().Preferences().SetInt("datapoints", int(f1))
-		g.datapoints = int(f1)
+		g.measure.Datapoints = int(f1)
 		fyne.CurrentApp().Preferences().SetInt("averagepoints", int(f1av))
 		if fyne.CurrentApp().Preferences().Bool("mydebug") != chkmydebug.Checked {
 			fyne.CurrentApp().Preferences().SetBool("mydebug", chkmydebug.Checked)
 			g.setuplogging() // since myDebug may have changed.
 		}
-		fyne.CurrentApp().Preferences().SetBool("SimulateAeroTrak", chksimulateAeroTrak.Checked)
-		fyne.CurrentApp().Preferences().SetBool("SimulateDustTrak", chksimulateDustTrak.Checked)
-		fyne.CurrentApp().Preferences().SetBool("SimulatePTrak", chksimulatePTrak.Checked)
+		fyne.CurrentApp().Preferences().SetBool("SimulateAeroTrak", chkSimulateAeroTrak.Checked)
+		fyne.CurrentApp().Preferences().SetBool("SimulateDustTrak", chkSimulateDustTrak.Checked)
+		fyne.CurrentApp().Preferences().SetBool("SimulatePTrak", chkSimulatePTrak.Checked)
 		fyne.CurrentApp().Preferences().SetBool("autostartmeasuring", chkautostart.Checked)
 		fyne.CurrentApp().Preferences().SetBool("synchronizedmeasuring", chksync.Checked)
 		switch pruningpopup.Selected {
@@ -189,7 +191,7 @@ func DoSettings(g *game) error {
 	cancelbutton := widget.NewButton("Cancel", func() {
 		settings.Close()
 	})
-	instgroup := container.NewGridWithColumns(2, ins1, chksimulateAeroTrak, ins2, chksimulateDustTrak, ins3, chksimulatePTrak)
+	instgroup := container.NewGridWithColumns(2, ins1, chkSimulateAeroTrak, ins2, chkSimulateDustTrak, ins3, chkSimulatePTrak)
 	colgroup := container.NewGridWithColumns(2, b1, r1, b2, r2, b3, r3)
 	instcol := container.NewGridWithColumns(2, instgroup, colgroup)
 
@@ -329,7 +331,7 @@ func DoAeroTrakSettings(g *game) error {
 	f1e1.SetText(temp_ATcmd)
 	f1e1.MultiLine = true
 	f1b1 := widget.NewButton("Set", func() {
-		f1e1.SetText(g.at.setupaerotrakcode())
+		// f1e1.SetText(g.measure.at.setupaerotrakcode())
 	})
 	okbutton := widget.NewButton("OK", func() {
 		fyne.CurrentApp().Preferences().SetString("aerotrakcmd", f1e1.Text)

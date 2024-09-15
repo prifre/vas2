@@ -23,7 +23,7 @@ import (
 )
 
 type PTraktype struct {
-	simulatePTrak   bool
+	SimulatePTrak   bool
 	PTrakrunning    bool
 	PTrakconnection io.ReadWriteCloser
 	PTrakolddata    int

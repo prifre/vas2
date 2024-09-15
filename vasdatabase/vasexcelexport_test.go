@@ -8,8 +8,8 @@ func TestFixtime(t *testing.T) {
 	t.Log("Running database CreateTables test")
 	db := new(DBtype)
 	db.Setupdb()
-	db.mdata[0] = 123
-	db.nanostamp = 1621802710870044900
+	db.Mdata[0] = 123
+	db.Nanostamp = 1621802710870044900
 	db.Createtables()
 	db.Addmeasurement()
 	// delete database

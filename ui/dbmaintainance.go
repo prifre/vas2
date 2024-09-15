@@ -4,6 +4,7 @@ import (
 	"log"
 	"strings"
 	"vas/vasdatabase"
+	"vas/vasmeasure"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -20,7 +21,7 @@ func DoMeasurements() error {
 	var c0, c2 fyne.Container
 	var err error
 	var myID int = -1
-	w := g.app.NewWindow("Measurements")
+	w := fyne.CurrentApp().NewWindow("Measurements")
 	w.SetCloseIntercept(func() {
 		w.Close()
 		w = nil
@@ -85,7 +86,7 @@ func DoMeasurements() error {
 			func() {
 				// Remove the element at index i from a.
 				if myID > -1 && len(d1) > 0 {
-					// if nanostring[myID] == fmt.Sprintf("%v", g.d.nanostamp) && g.d.nanostamp > 0 {
+					// if nanostring[myID] == fmt.Sprintf("%v", g.d.Nanostamp) && g.d.Nanostamp > 0 {
 					// 	dialog.ShowInformation("Warning", "Active measurement cannot be removed!", w)
 					// 	return
 					// }
@@ -124,19 +125,19 @@ func DoMeasurements() error {
 		widget.NewToolbarAction(theme.SearchReplaceIcon(),
 			func() {
 				new(vasdatabase.DBtype).Pruning()
-				m := "Pruning done for selected record.\n"
-				m = m + "Did remove records based on setting 'Save every' so only averages are saved.\n"
-				m = m + "Normally vas saves data every second if possible. This creates too much data\n"
-				m = m + "when exported automatically and data might become unmanagable.\n"
-				m = m + "Pruning automatically or here manually tries to solve this problem."
-				dialog.ShowInformation(m, "Select a measurement first!", w)
+				m1 := "Pruning done for selected record.\n"
+				m1 = m1 + "Did remove records based on setting 'Save every' so only averages are saved.\n"
+				m1 = m1 + "Normally vas saves data every second if possible. This creates too much data\n"
+				m1 = m1 + "when exported automatically and data might become unmanagable.\n"
+				m1 = m1 + "Pruning automatically or here manually tries to solve this problem."
+				dialog.ShowInformation(m1, "Select a measurement first!", w)
 			}),
 		//Start Measurement
 		widget.NewToolbarAction(theme.MediaPlayIcon(),
 			func() {
 				if nanostring[myID] > "" {
 					fyne.CurrentApp().Preferences().SetBool("autostart", true)
-					new(Measuretype).StartMeasurement()
+					new(vasmeasure.Measuretype).StartMeasurement()
 					w.Close()
 				}
 			}),

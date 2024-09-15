@@ -24,16 +24,16 @@ import (
 )
 
 type AeroTraktype struct {
-	simulateAeroTrak  bool
+	SimulateAeroTrak  bool
 	AeroTrakrunning   bool
 	AeroTrakclient    modbus.Client
 	AeroTrakhandler   *modbus.TCPClientHandler
 	AeroTraklastin    int
 	AeroTraksetupdone bool
 	AeroTrakport      string
-	defdelay          int64
+	Defdelay          int64
 	showcmd           bool
-	showdata          bool
+	Showdata          bool
 }
 
 func bytestoint32(b []byte) int32 {
@@ -86,7 +86,7 @@ func (at *AeroTraktype) modbusAeroTrakReadHoldingRegisters(adr uint16, count uin
 		log.Printf("AeroTrakclient nil!")
 		return nil, nil
 	}
-	time.Sleep(time.Duration(at.defdelay)) //time.Sleep(time.Duration(n) * time.Millisecond)
+	time.Sleep(time.Duration(at.Defdelay)) //time.Sleep(time.Duration(n) * time.Millisecond)
 	results, err = at.AeroTrakclient.ReadHoldingRegisters(adr, count)
 	//	ShowMyDebug("Read " + fmt.Sprintf("%v, %v", adr, at.AeroTrakclient))
 	if err != nil {
@@ -96,7 +96,7 @@ func (at *AeroTraktype) modbusAeroTrakReadHoldingRegisters(adr uint16, count uin
 	for len(results) < int(count) && tries > 0 {
 		if len(results) != int(count) {
 			//	ShowMyDebug(fmt.Sprintf("Got too little data!, waiting... %v,%v", n, tries))
-			time.Sleep(time.Duration(at.defdelay)) //time.Sleep(time.Duration(n) * time.Millisecond)
+			time.Sleep(time.Duration(at.Defdelay)) //time.Sleep(time.Duration(n) * time.Millisecond)
 			//	ShowMyDebug("Waited!")
 			n = n * 2
 		}
@@ -211,7 +211,7 @@ func ModbusAeroTrakgetinfo(port string) (string, error) {
 	}
 	for i := 0; i < 10; i++ {
 		for results[1] != 0 {
-			time.Sleep(time.Duration(at.defdelay)) //time.Sleep(1 * time.Second)
+			time.Sleep(time.Duration(at.Defdelay)) //time.Sleep(1 * time.Second)
 			results, err = at.modbusAeroTrakReadHoldingRegisters(41002-40001, 1)
 			if err != nil {
 				log.Printf("#3 getdevicestatus2 %v\n", err)
@@ -533,7 +533,7 @@ func (at *AeroTraktype) aerotrakcode(prog string) error {
 		case "SHOWCMD":
 			at.showcmd = (val == 1)
 		case "SHOWDATA":
-			at.showdata = (val == 1)
+			at.Showdata = (val == 1)
 		case "AEROTRAKSTART":
 			err = at.modbuswrite(at.AeroTrakclient, 41001-40001, []uint16{6}) //AeroTrak START
 		case "ENABLELOCALCONTROL":
