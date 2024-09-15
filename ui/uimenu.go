@@ -17,11 +17,12 @@ import (
 )
 
 // application menu
-func (g *game) BuildMenu() *fyne.MainMenu {
+func BuildMenu() *fyne.MainMenu {
 	// var err error
 	// a quit item will be appended to our first menu
 	var err error
 	var msg string
+	g :=new(game)
 	mFile := fyne.NewMenu("File",
 		fyne.NewMenuItem("Setup instruments...", func() {
 			DoSetupInstruments()

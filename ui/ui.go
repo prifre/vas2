@@ -43,14 +43,15 @@ type game struct {
 var tbl []string = []string{"tblAeroTrak", "tblDustTrak", "tblPTrak", "tblMain"}
 
 // Create will stitch together all ui components
-func (g *game) Create(window fyne.Window) *fyne.Window {
-	g.MyDebug = fyne.CurrentApp().Preferences().BoolWithFallback("mydebug", true)
+func Create(window fyne.Window) *fyne.Window {
+	
+	// g.MyDebug = fyne.CurrentApp().Preferences().BoolWithFallback("mydebug", true)
 	Setupfiles()
 	//	os.Setenv("FYNE_SCALE", "1.0")
 	//	var g game = *newGame(&[8]LineChart{})
-	g.window.SetMaster()
-	g.window.SetMainMenu(g.BuildMenu())
-	g.Addkeyshortcuts()
+	window.SetMaster()
+	window.SetMainMenu(BuildMenu())
+	// Addkeyshortcuts()
 	// g.window.Canvas().SetOnTypedRune(g.TypedRune)
 	// WindowSetup()
 	// g.measure =vasmeasure.MeasurementSetup()
@@ -61,7 +62,7 @@ func (g *game) Create(window fyne.Window) *fyne.Window {
 	// g.window.SetCloseIntercept(func() {
 	// 	g.Closeapp()
 	// })
-	g.window.CenterOnScreen()
+	window.CenterOnScreen()
 	// g.showlogo()
 	// if g.measure.autostartmeasuring {
 	// 	log.Printf("Autostart active, starting %v",time.Now().UnixNano())
@@ -69,7 +70,7 @@ func (g *game) Create(window fyne.Window) *fyne.Window {
 	// } else {
 	// 	g.measure.StopMeasurement()
 	// }
-	return &g.window
+	return &window
 }
 
 
