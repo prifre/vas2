@@ -12,7 +12,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"vas/vasdatabase"
 	"vas/vasftp"
 	"vas/vasmeasure"
 
@@ -54,16 +53,16 @@ func (g *game) Create(window fyne.Window) *fyne.Window {
 	g.Addkeyshortcuts()
 	// g.window.Canvas().SetOnTypedRune(g.TypedRune)
 	// WindowSetup()
-	g.measure =vasmeasure.MeasurementSetup()
-	g.setuplogging()
-	new(vasdatabase.DBtype).Setupdb()
-	g.measure.Start = time.Now()
-	log.Printf("Program started %v", g.measure.Start)
-	g.window.SetCloseIntercept(func() {
-		g.Closeapp()
-	})
+	// g.measure =vasmeasure.MeasurementSetup()
+	// g.setuplogging()
+	// new(vasdatabase.DBtype).Setupdb()
+	// g.measure.Start = time.Now()
+	// log.Printf("Program started %v", g.measure.Start)
+	// g.window.SetCloseIntercept(func() {
+	// 	g.Closeapp()
+	// })
 	g.window.CenterOnScreen()
-	g.showlogo()
+	// g.showlogo()
 	// if g.measure.autostartmeasuring {
 	// 	log.Printf("Autostart active, starting %v",time.Now().UnixNano())
 	// 	g.measure.StartMeasurement()
