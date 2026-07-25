@@ -22,7 +22,7 @@ jobs:
 
     - name: Build macOS App
       run: |
-        fyne build --os macos --app-id com.prifre.vas
+        fyne build --os macos
 
     - name: Pack to Zip
       run: |
