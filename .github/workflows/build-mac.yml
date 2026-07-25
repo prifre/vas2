@@ -22,11 +22,11 @@ jobs:
 
     - name: Build macOS App
       run: |
-        fyne build --os macos
+        fyne build --os darwin
 
     - name: Pack to Zip
       run: |
-        zip -r vas_mac.zip *.app
+        zip -r vas_mac.zip vas*
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
