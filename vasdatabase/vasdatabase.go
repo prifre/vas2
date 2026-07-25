@@ -1,646 +1,340 @@
-package vasdatabase // package
-
-// External routines:
-//		Addmeasurement
-// 		Setupdb - setup database
-//		Closemeasurement
-//		Exporttotext
-//		Exportonetotext
-//		Pruning
+package vasdatabase
 
 import (
 	"database/sql"
-	"errors"
 	"fmt"
 	"log"
-	"os"
-	"path/filepath"
+	"math/rand"
 	"strconv"
 	"strings"
 	"time"
 
 	"fyne.io/fyne/v2"
 
-	//	"github.com/mxk/go-sqlite/sqlite3"
 	_ "github.com/mattn/go-sqlite3"
 )
 
 type DBtype struct {
-	conn         *sql.DB
-	statement    *sql.Stmt
-	reply        sql.Result
-	Tstamp       string
-	//	tend      string
+	conn      *sql.DB
+	Tstamp    string
 	Nanostamp int64
-	Mname        string
+	Mname     string
 	Note      string
-	Mdata     [8]int32
+	Mdata     []int32
 }
 
-// add measurement, based on table and data as []int32
-func (db *DBtype) Addmeasurement() error {
-	// var statement *sqlite3.Stmt
-	// var result sqlite3.Result
-	var sq []string
-	var err error
-	err = db.Opendb()
-	if err != nil {
-		return errors.New(fmt.Sprintln("#1 AddMeasurement: ", err.Error()))
-	}
-	if db.Mdata[0] > -1 {
-		sq = append(sq, fmt.Sprintf("INSERT INTO tblPTrak (nanostamp,tstamp,mdata) VALUES (%v,'%v',%v) ", db.Nanostamp, db.Tstamp, db.Mdata[0]))
-	}
-	if db.Mdata[1] > -1 {
-		sq = append(sq, fmt.Sprintf("INSERT INTO tblDustTrak (nanostamp,tstamp,mdata) VALUES (%v,'%v',%v) ", db.Nanostamp, db.Tstamp, db.Mdata[1]))
-	}
-	if db.Mdata[2] > -1 {
-		sq = append(sq, fmt.Sprintf("INSERT INTO tblAeroTrak (nanostamp,tstamp,ch1,ch2,ch3,ch4,ch5,ch6) VALUES (%v,'%v',%v,%v,%v,%v,%v,%v) ",
-			db.Nanostamp, db.Tstamp, db.Mdata[2], db.Mdata[3], db.Mdata[4], db.Mdata[5], db.Mdata[6], db.Mdata[7]))
-	}
-	if len(sq) == 0 {
-		var n1 []string
-		n1, err = db.Getsql(fmt.Sprintf("SELECT mname FROM tblMain WHERE nanostamp=%v ", db.Nanostamp))
-		if err != nil {
-			return errors.New(fmt.Sprint("#2 AddMeasurement: ", err.Error()))
-		}
-		if n1 == nil || n1[0] == "0" || n1[0] == "" {
-			sq = append(sq, fmt.Sprintf("INSERT INTO tblMain (nanostamp,tstamp,mname,note) VALUES (%v,'%v','%v','%v')",
-				db.Nanostamp, db.Tstamp, db.Mname, db.Note))
-		}
-
-	}
-	err = db.Opendb()
-	//	db.conn.BusyTimeout(time.Second)
-	if err != nil {
-		return errors.New(fmt.Sprintln("#3 AddMeasurement: New opening2", err.Error()))
-	}
-	//	for _, s := range sq {
-	for i := 0; i < len(sq); i++ {
-		db.statement, err = db.conn.Prepare(sq[i]) // Prepare SQL Statement
-		if err != nil {
-			return errors.New(fmt.Sprintln("#4 AddMeasurement: Prepare failed: ", err.Error()))
-		}
-		_, err = db.statement.Exec() // Execute SQL Statements
-		if err != nil {
-			return errors.New(fmt.Sprintln("#5 AddMeasurement: Exec failed: ", err.Error()))
-		}
-	}
-	return err
-}
-func (db *DBtype) Setupdb() error {
-	var err error
-	fname := fyne.CurrentApp().Preferences().String("dbfilename")
-	if _, err = os.Stat(fname); err == nil {
-		err = db.Opendb()
-		if err != nil {
-			log.Println("#1 setupdb Failed to open db '"+fname+"'", db.conn)
-			return err
-		}
-	} else {
-		log.Println("#2 vas.db not found, creating new db: " + fname)
-		var file *os.File
-		file, err = os.Create(fname) // Create SQLite file
-		if err != nil {
-			log.Println("#3 setupdb Failed to create db", err.Error())
-			return err
-		}
-		file.Close()
-		err = db.Createtables() // Create Database Tables
-		if err != nil {
-			log.Println("#4 Could not create tables!", err.Error())
-			return err
-		} else {
-			log.Println("VAS database tables created")
-		}
-		err = db.Opendb()
-		if err != nil {
-			log.Println("#5 setupdb Failed to open db", db.conn)
-			return err
-		}
-	}
-	return err
-}
-func (db *DBtype) Closemeasurement() error {
-	var sq string
-	var err error
-	sq = fmt.Sprintf("UPDATE tblMain SET tend='%v' WHERE nanostamp=%v", fmt.Sprintf("%v", time.Now().Format(time.RFC3339)), db.Nanostamp)
-	err = db.Opendb()
-	if err != nil {
-		log.Println("#1 Closemeasurement open Failed", err.Error())
-		return err
-	}
-	db.statement, err = db.conn.Prepare(sq) // Prepare SQL Statement
-	if err != nil {
-		log.Println("#2 Closemeasurement prepare failed:", sq, " ", err.Error())
-		return err
-	}
-	db.reply, err = db.statement.Exec() // Execute SQL Statements
-	if err != nil {
-		log.Println("#2 Closemeasurement exec failed: ", sq, " ", err.Error(), db.reply)
-		return err
-	}
-	db.conn.Close()
-	db.conn = nil
-	return err
-}
-func (db *DBtype) Createtables() error {
-	var err error
-	var sq []string
-
-	err = db.Opendb()
-	if err != nil {
-		log.Println("#1 CreateTables failed opendb: ", err.Error())
-		return err
-	}
-	// check if table exists
-	_, table_check := db.conn.Query("select * from tblMain;")
-
-	if table_check == nil {
-		return nil
-		//table tblMain exists, so probably all is well...
-	}
-	//create tables...
-	sq = append(sq, "CREATE TABLE tblMain (id integer NOT NULL PRIMARY KEY AUTOINCREMENT, nanostamp integer, tstamp TEXT, "+
-		"tend TEXT, mname TEXT, note TEXT);")
-	sq = append(sq, `CREATE TABLE tblAeroTrak (id integer NOT NULL PRIMARY KEY AUTOINCREMENT, nanostamp integer, tstamp TEXT,`+
-		` ch1 integer, ch2 integer, ch3 integer, ch4 integer, ch5 integer, ch6 integer);`)
-	sq = append(sq, `CREATE TABLE tblDustTrak (id integer NOT NULL PRIMARY KEY AUTOINCREMENT, nanostamp integer, tstamp TEXT, mdata integer);`)
-	sq = append(sq, `CREATE TABLE tblPTrak (id integer NOT NULL PRIMARY KEY AUTOINCREMENT, nanostamp integer, tstamp TEXT, mdata integer);`)
-	for _, s := range sq {
-		db.statement, err = db.conn.Prepare(s) // Prepare SQL Statement
-		if err != nil {
-			if err.Error() == "table tblMain already exists" {
-				err = nil
-				return err
-			}
-			log.Println("#1 CreateTables: ", err.Error())
-		}
-		db.reply, err = db.statement.Exec() // Execute SQL Statements
-		if err != nil {
-			log.Println("#2 CreateTables failed: ", sq, " ", err.Error(), db.reply)
-			return err
-		}
-	}
-	return err
-}
+// Opendb säkerställer att anslutningen lever utan att stänga den i onödan.
 func (db *DBtype) Opendb() error {
-	var err error
-	// var temp fyne.URI
 	if db.conn != nil {
-		return nil // allready opened!
+		if err := db.conn.Ping(); err == nil {
+			return nil // Anslutningen är redan igång!
+		}
 	}
-	fname := fyne.CurrentApp().Preferences().String("dbfilename")
-	db.conn, err = sql.Open("sqlite3", fname) // Open the created SQLite File
+
+	fname := "/home/prifre/dev/go/src/vas2/resources/vasdatabase.db"
+	if fyne.CurrentApp() != nil {
+		if pref := fyne.CurrentApp().Preferences().String("dbfilename"); pref != "" {
+			fname = pref
+		}
+	}
+
+	// Sätt timeout och WAL-mode för att undvika locking-problem i SQLite
+	connStr := fname
+	if !strings.Contains(connStr, "_busy_timeout") {
+		if strings.Contains(connStr, "?") {
+			connStr += "&_busy_timeout=5000&_journal_mode=WAL"
+		} else {
+			connStr += "?_busy_timeout=5000&_journal_mode=WAL"
+		}
+	}
+
+	var err error
+	db.conn, err = sql.Open("sqlite3", connStr)
 	if err != nil {
-		log.Fatal("setupdatabase storage.Child error", err.Error())
+		log.Println("#1 Opendb open error:", err)
+		return err
 	}
+
+	// Tillåt Go att behålla anslutningen i sin pool
 	db.conn.SetMaxOpenConns(1)
-	db.conn.SetMaxIdleConns(0)
+	db.conn.SetMaxIdleConns(1)
 	db.conn.SetConnMaxIdleTime(time.Hour * 2)
 	db.conn.SetConnMaxLifetime(time.Hour * 2)
+
+	return db.conn.Ping()
+}
+
+// Closedb anropas ELAST när hela programmet avslutas (inte under körning!)
+func (db *DBtype) Closedb() {
+	if db.conn != nil {
+		db.conn.Close()
+		db.conn = nil
+	}
+}
+
+// Addmeasurement sparar mätdata tryggt
+func (db *DBtype) Addmeasurement() error {
+	if err := db.Opendb(); err != nil {
+		return fmt.Errorf("#1 AddMeasurement open error: %w", err)
+	}
+
+	if len(db.Mdata) == 0 {
+		return fmt.Errorf("#1 AddMeasurement: Mdata is empty")
+	}
+
+	// Om inga instrument har giltiga mätvärden än, se till att tblMain har raden
+	if db.Mdata[0] <= -1 && db.Mdata[1] <= -1 && db.Mdata[2] <= -1 {
+		n1, err := db.Getsql(fmt.Sprintf("SELECT mname FROM tblMain WHERE nanostamp=%d", db.Nanostamp))
+		if err != nil {
+			return fmt.Errorf("#2 AddMeasurement main check error: %w", err)
+		}
+		if len(n1) == 0 || n1[0] == "" || n1[0] == "0" {
+			stmt, err := db.conn.Prepare("INSERT INTO tblMain (nanostamp, tstamp, mname, note) VALUES (?, ?, ?, ?)")
+			if err != nil {
+				return err
+			}
+			defer stmt.Close() // Stänger enbart SQL-satsen, EINTE databasen!
+			if _, err := stmt.Exec(db.Nanostamp, db.Tstamp, db.Mname, db.Note); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	// PTrak
+	if db.Mdata[0] > -1 {
+		stmt, err := db.conn.Prepare("INSERT INTO tblPTrak (nanostamp, tstamp, mdata) VALUES (?, ?, ?)")
+		if err == nil {
+			_, err = stmt.Exec(db.Nanostamp, db.Tstamp, db.Mdata[0])
+			stmt.Close()
+		}
+		if err != nil {
+			log.Println("Error inserting PTrak:", err)
+		}
+	}
+
+	// DustTrak
+	if db.Mdata[1] > -1 {
+		stmt, err := db.conn.Prepare("INSERT INTO tblDustTrak (nanostamp, tstamp, mdata) VALUES (?, ?, ?)")
+		if err == nil {
+			_, err = stmt.Exec(db.Nanostamp, db.Tstamp, db.Mdata[1])
+			stmt.Close()
+		}
+		if err != nil {
+			log.Println("Error inserting DustTrak:", err)
+		}
+	}
+
+	// AeroTrak
+	if db.Mdata[2] > -1 && len(db.Mdata) >= 8 {
+		stmt, err := db.conn.Prepare("INSERT INTO tblAeroTrak (nanostamp, tstamp, ch1, ch2, ch3, ch4, ch5, ch6) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+		if err == nil {
+			_, err = stmt.Exec(db.Nanostamp, db.Tstamp, db.Mdata[2], db.Mdata[3], db.Mdata[4], db.Mdata[5], db.Mdata[6], db.Mdata[7])
+			stmt.Close()
+		}
+		if err != nil {
+			log.Println("Error inserting AeroTrak:", err)
+		}
+	}
+
+	return nil
+}
+
+func (db *DBtype) Closemeasurement() error {
+	if err := db.Opendb(); err != nil {
+		return err
+	}
+
+	stmt, err := db.conn.Prepare("UPDATE tblMain SET tend=? WHERE nanostamp=?")
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	nowStr := time.Now().Format(time.RFC3339)
+	_, err = stmt.Exec(nowStr, db.Nanostamp)
 	return err
 }
-func (db *DBtype) Exporttotext() (string, error) {
-	var tbl []string = []string{"tblAeroTrak", "tblDustTrak", "tblPTrak", "tblMain"}
-	var err error
-	var id int
-	var cnt []string
-	var nanostamp int64 = 0
-	var msg, sq, mn, ts, te, nt string
-	var tstamp, tend, mname, note sql.NullString
-	var mdata, ch1, ch2, ch3, ch4, ch5, ch6 int
-	var f *os.File
-	var s []string
-	dir := fyne.CurrentApp().Preferences().String("homedir")
-	err = db.Opendb()
-	if err != nil {
-		log.Println("#1 Exporttotext open Failed", err.Error())
-		return "", err
-	}
-	for i := 0; i < len(tbl); i++ {
-		s, err = db.Getsql(fmt.Sprintf("SELECT COUNT(*) from %v", tbl[i]))
-		if err != nil {
-			return fmt.Sprintf("error selecting COUNT(*) from tbl %v", tbl[i]), err
-		}
-		cnt = append(cnt, s[0])
-	}
-	for i := 0; i < len(tbl); i++ {
-		f, err = os.OpenFile(filepath.Join(dir, tbl[i]+".txt"), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
-		if err != nil {
-			log.Println("#2 Export Could not create textfile", err.Error())
-			return "", err
-		}
-		sq = "SELECT * FROM " + tbl[i]
-		rows, err := db.conn.Query(sq)
-		if err != nil {
-			log.Println("#3 Export query error ", err.Error())
-			return "", err
-		}
-		for rows.Next() {
-			s := ""
-			mn = ""
-			ts = ""
-			te = ""
-			nt = ""
-			switch tbl[i] {
-			case "tblDustTrak":
-				if err = rows.Scan(&id, &nanostamp, &tstamp, &mdata); err != nil {
-					log.Println("ERROR_DustTrak", err.Error())
-					return "", err
-				}
-				if tstamp.Valid {
-					ts = tstamp.String
-				}
-				s = s + fmt.Sprintf("%v\t%v\t%v\t%v\t%v\n", tbl[i], id, nanostamp, ts, mdata)
-			case "tblPTrak":
-				if err = rows.Scan(&id, &nanostamp, &tstamp, &mdata); err != nil {
-					log.Println("ERROR_PTrak", err.Error())
-					return "", err
-				}
-				if tstamp.Valid {
-					ts = tstamp.String
-				}
-				s = s + fmt.Sprintf("%v\t%v\t%v\t%v\t%v\n", tbl[i], id, nanostamp, ts, mdata)
-			case "tblAeroTrak":
-				err = rows.Scan(&id, &nanostamp, &tstamp, &ch1, &ch2, &ch3, &ch4, &ch5, &ch6)
-				if err != nil {
-					log.Printf("ERROR_%v, %v", tbl[i], err.Error())
-				}
-				if tstamp.Valid {
-					ts = tstamp.String
-				}
-				s = s + fmt.Sprintf("%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\n", tbl[i], id, nanostamp, ts, ch1, ch2, ch3, ch4, ch5, ch6)
-			case "tblMain":
-				err = rows.Scan(&id, &nanostamp, &tstamp, &tend, &mname, &note)
-				if err != nil {
-					log.Println("ERROR_tblMain", err.Error())
-				}
 
-				if mname.Valid {
-					mn = mname.String
-				}
-				if tstamp.Valid {
-					ts = tstamp.String
-				}
-				if tend.Valid {
-					te = tend.String
-				}
-				if note.Valid {
-					nt = mname.String
-				}
-				s = s + fmt.Sprintf("%v\t%v\t%v\t%v\t%v\t%v\t%v\n", tbl[i], id, nanostamp, ts, te, mn, nt)
-			}
-			_, err := f.Write([]byte(s))
-			if err != nil {
-				log.Println("error writing textfile ", tbl[i], err.Error())
-			}
-		}
-		f.Close()
-		log.Printf("Exported %v from %v to textfile %v ok.", cnt[i], tbl[i], f.Name())
-	}
-	if err != nil {
-		log.Println("Problems exporting database to text ", err.Error())
-		return "", err
-	} else {
-		msg = "All measurement data has been exported to textfiles:\n"
-		msg = msg + "tblAeroTrak.txt\n"
-		msg = msg + "tblDustTrak.txt\n"
-		msg = msg + "tblPTrak.txt\n"
-	}
-	return msg, err
-}
-func (db *DBtype) Exportonetotext() (string, error) {
-	var err error
-	var id int
-	var cnt []string
-	var nanostamp int64 = 0
-	var msg, sq, mn, ts, te, nt string
-	var tstamp, tend, mname, note sql.NullString
-	var mdata, ch1, ch2, ch3, ch4, ch5, ch6 int
-	var f *os.File
-	var s []string
-	var tbl []string = []string{"tblAeroTrak", "tblDustTrak", "tblPTrak", "tblMain"}
-	dir := fyne.CurrentApp().Preferences().String("homedir")
-	if db.Nanostamp == 0 {
-		return "No current measurement, no data exported.", err
-	}
-	err = db.Opendb()
-	if err != nil {
-		log.Println("#1 Exporttotext open Failed", err.Error())
-		return "", err
-	}
-	for i := 0; i < len(tbl); i++ {
-		s, err = db.Getsql(fmt.Sprintf("SELECT COUNT(*) from %v WHERE nanostamp=%v", tbl[i], db.Nanostamp))
-		cnt = append(cnt, s[0])
-		if err != nil {
-			return "", err
-		}
-	}
-	for i := 0; i < len(tbl); i++ {
-		f, err = os.OpenFile(filepath.Join(dir, tbl[i]+".txt"), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
-		if err != nil {
-			log.Println("#2 Export Could not create textfile", err.Error())
-			return "", err
-		}
-		sq = fmt.Sprintf("SELECT * FROM %v WHERE nanostamp=%v", tbl[i], db.Nanostamp)
-		rows, err := db.conn.Query(sq)
-		if err != nil {
-			log.Println("#3 Export query error ", err.Error())
-			return "", err
-		}
-		for rows.Next() {
-			s := ""
-			mn = ""
-			ts = ""
-			te = ""
-			nt = ""
-			switch tbl[i] {
-			case "tblDustTrak":
-				if err = rows.Scan(&id, &nanostamp, &tstamp, &mdata); err != nil {
-					log.Println("ERROR_DustTrak", err.Error())
-					return "", err
-				}
-				if tstamp.Valid {
-					ts = tstamp.String
-				}
-				s = s + fmt.Sprintf("%v\t%v\t%v\t%v\t%v\n", tbl[i], id, nanostamp, ts, mdata)
-			case "tblPTrak":
-				if err = rows.Scan(&id, &nanostamp, &tstamp, &mdata); err != nil {
-					log.Println("ERROR_PTrak", err.Error())
-					return "", err
-				}
-				if tstamp.Valid {
-					ts = tstamp.String
-				}
-				s = s + fmt.Sprintf("%v\t%v\t%v\t%v\t%v\n", tbl[i], id, nanostamp, ts, mdata)
-			case "tblAeroTrak":
-				err = rows.Scan(&id, &nanostamp, &tstamp, &ch1, &ch2, &ch3, &ch4, &ch5, &ch6)
-				if err != nil {
-					log.Printf("ERROR_%v, %v", tbl[i], err.Error())
-				}
-				if tstamp.Valid {
-					ts = tstamp.String
-				}
-				s = s + fmt.Sprintf("%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\n", tbl[i], id, nanostamp, ts, ch1, ch2, ch3, ch4, ch5, ch6)
-			case "tblMain":
-				err = rows.Scan(&id, &nanostamp, &tstamp, &tend, &mname, &note)
-				if err != nil {
-					log.Println("ERROR_tblMain", err.Error())
-				}
-
-				if mname.Valid {
-					mn = mname.String
-				}
-				if tstamp.Valid {
-					ts = tstamp.String
-				}
-				if tend.Valid {
-					te = tend.String
-				}
-				if note.Valid {
-					nt = mname.String
-				}
-				s = s + fmt.Sprintf("%v\t%v\t%v\t%v\t%v\t%v\t%v\n", tbl[i], id, nanostamp, ts, te, mn, nt)
-			}
-			_, err := f.Write([]byte(s))
-			if err != nil {
-				log.Println("error writing textfile ", tbl[i], err.Error())
-			}
-		}
-		f.Close()
-		log.Printf("Exported %v from %v to textfile %v ok.", cnt[i], tbl[i], f.Name())
-	}
-	if err != nil {
-		log.Println("Problems exporting database to text ", err.Error())
-		return "", err
-	} else {
-		msg = fmt.Sprintf("All data for measurement %v has been exported to textfiles:\n,", db.Nanostamp)
-		msg = msg + "tblAeroTrak.txt\n"
-		msg = msg + "tblDustTrak.txt\n"
-		msg = msg + "tblPTrak.txt\n"
-	}
-	return msg, err
-}
-
-// get one value from database quickly...
 func (db *DBtype) Getsql(sq string) ([]string, error) {
-	var err error
-	var k []string
-	var s sql.NullString
-	var s2 string
-	err = db.Opendb()
-	if err != nil {
-		log.Println("#1 Getsql opendb error: ", err.Error())
+	if err := db.Opendb(); err != nil {
 		return nil, err
 	}
+
 	rows, err := db.conn.Query(sq)
 	if err != nil {
-		fmt.Println("#2 Getsql Query error:", err.Error())
+		log.Println("#2 Getsql Query error:", err)
 		return nil, err
 	}
-	col, err := rows.Columns()
+	defer rows.Close() // Stänger rad-pekaren så SQLite-låset släpps
+
+	cols, err := rows.Columns()
 	if err != nil {
-		fmt.Println("#3 Getsql Col error", err.Error())
 		return nil, err
 	}
-	if len(col) > 1 {
-		log.Println("#4 Getsql too many columns in query! Do your own query!")
-		return nil, fmt.Errorf("too many columns!%v", "")
+	if len(cols) > 1 {
+		return nil, fmt.Errorf("too many columns in query: %d", len(cols))
 	}
-	var ct []*sql.ColumnType
-	ct, err = rows.ColumnTypes()
-	if err != nil {
-		fmt.Println("#5 Getsql CT error", err.Error())
-	}
+
+	var result []string
 	for rows.Next() {
-		switch strings.ToUpper(ct[0].DatabaseTypeName()) {
-		case "INTEGER":
-			var x int64
-			err = rows.Scan(&x)
-			if err != nil {
-				fmt.Println("#6 Getsql Scan error", err.Error())
-			}
-			s2 = fmt.Sprintf("%v", x)
-		case "TEXT":
-			err = rows.Scan(&s)
-			s2 = ""
-			if s.Valid {
-				s2 = fmt.Sprintf("%v", s.String)
-			}
-			if err != nil {
-				fmt.Println("#6 Getsql Scan error", err.Error())
-			}
-		default:
-			err = rows.Scan(&s)
-			// COUNT(*)...
-			if s.Valid {
-				s2 = fmt.Sprintf("%v", s.String)
-			}
-		}
-		k = append(k, s2)
-	}
-	return k, err
-}
-
-func (db *DBtype) Deleteall(n string) error {
-	var err error
-	var sq []string
-	// remove from database
-	err = db.Opendb()
-	if err != nil {
-		log.Println("#1 deleteall open Failed", err.Error())
-	}
-	sq = append(sq, "DELETE FROM tblDustTrak WHERE nanostamp="+n)
-	sq = append(sq, "DELETE FROM tblPTrak WHERE nanostamp="+n)
-	sq = append(sq, "DELETE FROM tblAeroTrak WHERE nanostamp="+n)
-	sq = append(sq, "DELETE FROM tblMain WHERE nanostamp="+n)
-	for i := 0; i < len(sq); i++ {
-		db.statement, err = db.conn.Prepare(sq[i]) // Prepare SQL Statement
-		if err != nil {
-			log.Println("#2 deleteall prepare failed: ", sq[i], " ", err.Error())
-			return err
-		}
-		db.reply, err = db.statement.Exec() // Execute SQL Statements
-		if err != nil {
-			log.Println("#3 deleteall exec failed: ", sq[i], " ", err.Error(), db.reply)
-			return err
-		}
-	}
-	return err
-}
-func (db *DBtype) Updatedetails(nanostamp string, mname string) string {
-	var n1 []string
-	var err error
-	var d string
-	db.Opendb()
-	d = fmt.Sprintf("Measurement name: %v", mname)
-	if n1, err = db.Getsql("SELECT tstamp FROM tblMain WHERE nanostamp=" + nanostamp); err != nil {
-		log.Println("#1 updatedetails SELECT ", err.Error())
-	} else {
-		d += fmt.Sprintf("\n\nMeasurement start: %v", n1[0])
-	}
-	if n1, err = db.Getsql("SELECT tend FROM tblMain WHERE nanostamp=" + nanostamp); err != nil {
-		log.Println("#2 updatedetails SELECT ", err.Error())
-	} else {
-		d += fmt.Sprintf("\n\nMeasurement end: %v", n1[0])
-	}
-	n1, err = db.Getsql("SELECT note FROM tblMain WHERE nanostamp=" + nanostamp)
-	if err != nil {
-		log.Println("#3 updatedetails SELECT ", err.Error())
-	} else {
-		d += fmt.Sprintf("\n\nNote: %v\n\n", n1[0])
-	}
-	n1, err = db.Getsql("SELECT nanostamp FROM tblMain WHERE nanostamp=" + nanostamp)
-	if err != nil {
-		log.Println("#3 updatedetails SELECT ", err.Error())
-	} else {
-		d += fmt.Sprintf("\n\nNanostamp: %v\n\n", n1[0])
-	}
-	n1, err = db.Getsql("SELECT COUNT(*) FROM tblAeroTrak WHERE nanostamp=" + nanostamp)
-	if err != nil {
-		log.Println("#3 updatedetails SELECT ", err.Error())
-	} else {
-		d += fmt.Sprintf("\n\nAeroTrak data: %v", n1[0])
-	}
-	n1, err = db.Getsql("SELECT COUNT(*) FROM tblDustTrak WHERE nanostamp=" + nanostamp)
-	if err != nil {
-		log.Println("#3 updatedetails SELECT ", err.Error())
-	} else {
-		d += fmt.Sprintf("\n\nDustTrak data: %v", n1[0])
-	}
-	n1, err = db.Getsql("SELECT COUNT(*) FROM tblPTrak WHERE nanostamp=" + nanostamp)
-	if err != nil {
-		log.Println("#3 updatedetails SELECT ", err.Error())
-	} else {
-		d += fmt.Sprintf("\n\nPTrak data: %v", n1[0])
-	}
-	return d
-}
-
-func (db *DBtype) Pruning() error {
-	// Values can be saved per 5 seconds, 10 seconds or per minute...
-	// count datapoints for the measurement
-	var tbl []string = []string{"tblAeroTrak", "tblDustTrak", "tblPTrak", "tblMain"}
-	var err error
-	var s []string
-	var sq string
-	var savefrequency int = fyne.CurrentApp().Preferences().IntWithFallback("savefrequency", 0)
-	for i := 0; i < len(tbl); i++ {
-		if tbl[i] == "tblMain" {
+		var s sql.NullString
+		if err := rows.Scan(&s); err != nil {
 			continue
 		}
-		s, _ = db.Getsql(fmt.Sprintf("SELECT COUNT(*) FROM %v WHERE nanostamp=%v", tbl[i], db.Nanostamp))
-		bef, _ := strconv.Atoi(s[0])
-		// fmt.Printf("Number of records in %v = %v\n", tbl[i], bef)
-		// sq = fmt.Sprintf("SELECT SUBSTRING(tstamp,12,8) FROM %v WHERE nanostamp=%v", tbl[i], db.Nanostamp)
-		// // SUBSTR(tstamp,12,8) == hh:mm:ss
-		// s, _ = db.Getsql(sq)
-		if bef > 0 {
-			s1 := ""
-			switch savefrequency {
-			case 0: // sample every 5 seconds
-				s1 += "(SUBSTR(tstamp,19,1)='1' OR "
-				s1 += "SUBSTR(tstamp,19,1)='2' OR "
-				s1 += "SUBSTR(tstamp,19,1)='3' OR "
-				s1 += "SUBSTR(tstamp,19,1)='4' OR "
-				s1 += "SUBSTR(tstamp,19,1)='6' OR "
-				s1 += "SUBSTR(tstamp,19,1)='7' OR "
-				s1 += "SUBSTR(tstamp,19,1)='8' OR "
-				s1 += "SUBSTR(tstamp,19,1)='9')"
-			case 1: // sample every 10 seconds
-				s1 += "(SUBSTR(tstamp,19,1)='1' OR "
-				s1 += "SUBSTR(tstamp,19,1)='2' OR "
-				s1 += "SUBSTR(tstamp,19,1)='3' OR "
-				s1 += "SUBSTR(tstamp,19,1)='4' OR "
-				s1 += "SUBSTR(tstamp,19,1)='5' OR "
-				s1 += "SUBSTR(tstamp,19,1)='6' OR "
-				s1 += "SUBSTR(tstamp,19,1)='7' OR "
-				s1 += "SUBSTR(tstamp,19,1)='8' OR "
-				s1 += "SUBSTR(tstamp,19,1)='9')"
-			case 2: // sample every minute
-				s1 += "SUBSTR(tstamp,18,2)='00'"
-			}
-			sq = fmt.Sprintf("DELETE FROM %v WHERE %v AND nanostamp=%v", tbl[i], s1, db.Nanostamp)
-			db.statement, err = db.conn.Prepare(sq) // Prepare SQL Statement
-			if err != nil {
-				log.Println("#1 pruning error ", sq, err.Error())
-				return nil
-			}
-			_, err = db.statement.Exec() // Execute SQL Statements
-			if err != nil {
-				log.Println("#2 pruning error ", db.statement, err.Error())
-				return nil
-			}
-			s, _ = db.Getsql(fmt.Sprintf("SELECT COUNT(*) FROM %v WHERE nanostamp=%v", tbl[i], db.Nanostamp))
-			aft, _ := strconv.Atoi(s[0])
-			fmt.Printf("Records for nanostamp %v removed from %v: %v \n", db.Nanostamp, tbl[i], bef-aft)
+		if s.Valid {
+			result = append(result, s.String)
+		} else {
+			result = append(result, "")
+		}
+	}
+
+	return result, rows.Err()
+}
+
+func (db *DBtype) Deleteall(nanostamp string) error {
+	if err := db.Opendb(); err != nil {
+		return err
+	}
+
+	tables := []string{"tblDustTrak", "tblPTrak", "tblAeroTrak", "tblMain"}
+	for _, table := range tables {
+		query := fmt.Sprintf("DELETE FROM %s WHERE nanostamp=?", table)
+		stmt, err := db.conn.Prepare(query)
+		if err != nil {
+			return err
+		}
+		_, err = stmt.Exec(nanostamp)
+		stmt.Close()
+		if err != nil {
+			return err
 		}
 	}
 	return nil
 }
-func (db *DBtype) UpdateMeasurementNameNote(ID string, mname string,note string) error {
-	var sq string
-	var err error
-	sq = "UPDATE tblMain SET mname='" + mname + "' WHERE nanostamp=" + ID
-	db.statement, err = db.conn.Prepare(sq) // Prepare SQL Statement
-	if err != nil {
-		log.Println("#2 prepare failed: >> ", err.Error())
+
+func (db *DBtype) Updatedetails(nanostamp string) string {
+	if strings.TrimSpace(nanostamp) == "" {
+		return "Ingen mätning vald."
+	}
+
+	var d strings.Builder
+
+	if n1, err := db.Getsql("SELECT tstamp FROM tblMain WHERE nanostamp=" + nanostamp); err == nil && len(n1) > 0 {
+		d.WriteString(fmt.Sprintf("Measurement start: %v\n\n", n1[0]))
+	}
+	if n1, err := db.Getsql("SELECT tend FROM tblMain WHERE nanostamp=" + nanostamp); err == nil && len(n1) > 0 {
+		d.WriteString(fmt.Sprintf("Measurement end: %v\n\n", n1[0]))
+	}
+	if n1, err := db.Getsql("SELECT note FROM tblMain WHERE nanostamp=" + nanostamp); err == nil && len(n1) > 0 {
+		d.WriteString(fmt.Sprintf("Note: %v\n\n", n1[0]))
+	}
+
+	d.WriteString(fmt.Sprintf("Nanostamp: %v\n\n", nanostamp))
+
+	getCount := func(table string) string {
+		q := fmt.Sprintf("SELECT COUNT(*) FROM %s WHERE nanostamp=%s", table, nanostamp)
+		if n1, err := db.Getsql(q); err == nil && len(n1) > 0 {
+			return n1[0]
+		}
+		return "0"
+	}
+
+	d.WriteString(fmt.Sprintf("AeroTrak data: %v\n", getCount("tblAeroTrak")))
+	d.WriteString(fmt.Sprintf("DustTrak data: %v\n", getCount("tblDustTrak")))
+	d.WriteString(fmt.Sprintf("PTrak data: %v\n", getCount("tblPTrak")))
+
+	return d.String()
+}
+
+func (db *DBtype) Pruning() error {
+	if db.conn == nil {
+		if err := db.Opendb(); err != nil {
+			return err
+		}
+	}
+
+	tables := []string{"tblAeroTrak", "tblDustTrak", "tblPTrak"}
+	savefrequency := fyne.CurrentApp().Preferences().IntWithFallback("savefrequency", 0)
+
+	for _, table := range tables {
+		// 1. Räkna rader före rensning
+		s, err := db.Getsql(fmt.Sprintf("SELECT COUNT(*) FROM %s WHERE nanostamp=%d", table, db.Nanostamp))
+		if err != nil || len(s) == 0 {
+			continue
+		}
+		bef, _ := strconv.Atoi(s[0])
+
+		if bef > 0 {
+			var s1 string
+			switch savefrequency {
+			case 0: // Spara var 5:e sek
+				s1 = "unixepoch(tstamp) % 5 != 0"
+			case 1: // Spara var 10:e sek
+				s1 = "unixepoch(tstamp) % 10 != 0"
+			case 2: // Spara varje hel minut
+				s1 = "unixepoch(tstamp) % 60 != 0"
+			}
+			if s1 != "" {
+				// Kör rensningen
+				query := fmt.Sprintf("DELETE FROM %s WHERE %s AND nanostamp=?", table, s1)
+				res, err := db.conn.Exec(query, db.Nanostamp)
+				if err != nil {
+					log.Println("#1 pruning exec error:", err)
+					continue
+				}
+
+				rowsAffected, _ := res.RowsAffected()
+				if rowsAffected > 0 {
+					log.Printf("Records for nanostamp %d removed from %s: %d\n", db.Nanostamp, table, rowsAffected)
+				}
+			}
+		}
+	}
+	return nil
+}
+func (db *DBtype) UpdateMeasurementNameNote(ID string, mname string, note string) error {
+	if err := db.Opendb(); err != nil {
 		return err
 	}
-	_, err = db.statement.Exec() // Execute SQL Statements
+
+	stmt1, err := db.conn.Prepare("UPDATE tblMain SET mname=? WHERE nanostamp=?")
 	if err != nil {
-		log.Println("#3 exec failed: >> ", err.Error())
 		return err
 	}
-	sq = "UPDATE tblMain SET note='" + note + "' WHERE nanostamp=" + ID
-	db.statement, err = db.conn.Prepare(sq) // Prepare SQL Statement
-	if err != nil {
-		log.Println("#2 prepare failed: >> ", err.Error())
+	defer stmt1.Close()
+	if _, err := stmt1.Exec(mname, ID); err != nil {
 		return err
 	}
-	_, err = db.statement.Exec() // Execute SQL Statements
+
+	stmt2, err := db.conn.Prepare("UPDATE tblMain SET note=? WHERE nanostamp=?")
 	if err != nil {
-		log.Println("#3 exec failed: >> ", err.Error())
+		return err
 	}
+	defer stmt2.Close()
+	_, err = stmt2.Exec(note, ID)
+
 	return err
+}
+
+func (db *DBtype) FillDatabase() {
+	db.Nanostamp = time.Now().UnixNano()
+	db.Tstamp = time.Now().Format(time.RFC3339)
+
+	cleanTstamp := db.Tstamp
+	for _, char := range []string{"-", "/", ":", "."} {
+		cleanTstamp = strings.ReplaceAll(cleanTstamp, char, "")
+	}
+	db.Mname = "Measurement" + cleanTstamp
+	if len(db.Mname) > 26 {
+		db.Mname = db.Mname[:26]
+	}
+
+	db.Mdata = []int32{-1, -1, -1, -1, -1, -1, -1, -1}
+	_ = db.Addmeasurement()
+
+	for i := 0; i < len(db.Mdata); i++ {
+		db.Mdata[i] = int32(rand.Intn(1001))
+	}
+	_ = db.Addmeasurement()
 }

@@ -3,13 +3,14 @@ package ui
 import (
 	"fmt"
 	"image/color"
-	"strings"
-	"vas/vasinstruments"
+	"strconv"
+	"time"
+	"vas2/vascharts"
+	"vas2/vasinstruments"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/data/binding"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
@@ -17,167 +18,206 @@ import (
 )
 
 func SetStrokeColor(c int, cc color.Color) {
-	r1, g1, b1, a1 := cc.RGBA()
-	fyne.CurrentApp().Preferences().SetInt(fmt.Sprintf("%vStrokeColorR", c), int(r1))
-	fyne.CurrentApp().Preferences().SetInt(fmt.Sprintf("%vStrokeColorG", c), int(g1))
-	fyne.CurrentApp().Preferences().SetInt(fmt.Sprintf("%vStrokeColorB", c), int(b1))
-	fyne.CurrentApp().Preferences().SetInt(fmt.Sprintf("%vStrokeColorA", c), int(a1))
+	r, g, b, a := cc.RGBA()
+	prefs := fyne.CurrentApp().Preferences()
+	// Skifta ned från 16-bit till 8-bit (0-255)
+	prefs.SetInt(fmt.Sprintf("%vStrokeColorR", c), int(r>>8))
+	prefs.SetInt(fmt.Sprintf("%vStrokeColorG", c), int(g>>8))
+	prefs.SetInt(fmt.Sprintf("%vStrokeColorB", c), int(b>>8))
+	prefs.SetInt(fmt.Sprintf("%vStrokeColorA", c), int(a>>8))
 }
+
 func GetStrokeColor(c int) color.Color {
-	var cc color.Color
-	var ChartColors = [8]color.Color{colornames.Green, colornames.Yellow, colornames.Red, colornames.Red,
-		colornames.Red, colornames.Red, colornames.Red, colornames.Red}
-		r2, g2, b2, a2 := ChartColors[c].RGBA()
-	r1 := uint8(fyne.CurrentApp().Preferences().IntWithFallback(fmt.Sprintf("%vStrokeColorR", c), int(r2)))
-	g1 := uint8(fyne.CurrentApp().Preferences().IntWithFallback(fmt.Sprintf("%vStrokeColorG", c), int(g2)))
-	b1 := uint8(fyne.CurrentApp().Preferences().IntWithFallback(fmt.Sprintf("%vStrokeColorB", c), int(b2)))
-	a1 := uint8(fyne.CurrentApp().Preferences().IntWithFallback(fmt.Sprintf("%vStrokeColorA", c), int(a2)))
-	cc = color.RGBA{r1, g1, b1, a1}
-	return cc
+	var ChartColors = [8]color.Color{
+		colornames.Green, colornames.Yellow, colornames.Red, colornames.Red,
+		colornames.Red, colornames.Red, colornames.Red, colornames.Red,
+	}
+	r2, g2, b2, a2 := ChartColors[c].RGBA()
+	prefs := fyne.CurrentApp().Preferences()
+
+	r1 := uint8(prefs.IntWithFallback(fmt.Sprintf("%vStrokeColorR", c), int(r2>>8)))
+	g1 := uint8(prefs.IntWithFallback(fmt.Sprintf("%vStrokeColorG", c), int(g2>>8)))
+	b1 := uint8(prefs.IntWithFallback(fmt.Sprintf("%vStrokeColorB", c), int(b2>>8)))
+	a1 := uint8(prefs.IntWithFallback(fmt.Sprintf("%vStrokeColorA", c), int(a2>>8)))
+
+	return color.RGBA{R: r1, G: g1, B: b1, A: a1}
 }
-func DoSettings(g *game) error {
-	settings := g.app.NewWindow("Settings")
-	settings.SetCloseIntercept(func() {
-	})
-	b0 := canvas.NewText("                        ", colornames.Black)
-	b0.TextSize = 40
-	ins1 := canvas.NewText("AeroTrak: "+fyne.CurrentApp().Preferences().StringWithFallback("AeroTrak", ""), colornames.White)
-	ins2 := canvas.NewText("DustTrak: "+fyne.CurrentApp().Preferences().StringWithFallback("DustTrak", ""), colornames.White)
-	ins3 := canvas.NewText("PTrak: "+fyne.CurrentApp().Preferences().StringWithFallback("PTrak", ""), colornames.White)
-	b0.TextSize = 14
+func DoSettings(parentWindow fyne.Window) error {
+	var settingsDialog dialog.Dialog
+	var pruningoptions = []string{"Save every 5 seconds", "Save every 10 seconds", "Save every minute"}
+	var countunitsoptions = []string{"Δ #", "Δ #/m³", "Δ #/ft³"}
+	prefs := fyne.CurrentApp().Preferences()
 
-	pruninglabel := canvas.NewText("Pruning of data:", colornames.White)
-	pruningpopup := widget.NewSelect([]string{"Save every 5 seconds", "Save every 10 seconds", "Save every minute"}, func(value string) {
-	})
-	pruningpopup.SetSelectedIndex(fyne.CurrentApp().Preferences().IntWithFallback("savefrequency", 0))
+	// Instrument-etiketter
+	ins1 := canvas.NewText("AeroTrak: "+prefs.StringWithFallback("AeroTrak", ""), colornames.White)
+	ins2 := canvas.NewText("DustTrak: "+prefs.StringWithFallback("DustTrak", ""), colornames.White)
+	ins3 := canvas.NewText("PTrak: "+prefs.StringWithFallback("PTrak", ""), colornames.White)
 
-	countunitslabel := canvas.NewText("Count units::", colornames.White)
-	countunitspopup := widget.NewSelect([]string{"Δ #", "Δ #/m³", "Δ #/ft³"}, func(value string) {
-	})
-	countunitspopup.SetSelectedIndex(fyne.CurrentApp().Preferences().IntWithFallback("countunits", 0))
+	pruninglabel := canvas.NewText("Pruning:", colornames.White)
+	pruningpopup := widget.NewSelect(pruningoptions, func(value string) {})
+	pruningpopup.SetSelectedIndex(prefs.IntWithFallback("savefrequency", 0))
+
+	countunitslabel := canvas.NewText("Count units:", colornames.White)
+	countunitspopup := widget.NewSelect(countunitsoptions, func(value string) {})
+	switch prefs.IntWithFallback("countunits", 1) {
+	case 1:
+		countunitspopup.SetSelectedIndex(0)
+	case 21201:
+		countunitspopup.SetSelectedIndex(1)
+	case 600:
+		countunitspopup.SetSelectedIndex(2)
+	default:
+		countunitspopup.SetSelectedIndex(0)
+	}
 
 	chkSimulateAeroTrak := widget.NewCheck("Simulate AeroTrak", func(value bool) {})
-	chkSimulateAeroTrak.SetChecked(fyne.CurrentApp().Preferences().BoolWithFallback("SimulateAeroTrak", false))
-	if fyne.CurrentApp().Preferences().String("AeroTrak") != "" {
-		chkSimulateAeroTrak.SetChecked(false)
-		chkSimulateAeroTrak.Disable()
-	}
+	chkSimulateAeroTrak.SetChecked(prefs.BoolWithFallback("SimulateAeroTrak", false))
 
 	chkSimulateDustTrak := widget.NewCheck("Simulate DustTrak", func(value bool) {})
-	chkSimulateDustTrak.SetChecked(fyne.CurrentApp().Preferences().BoolWithFallback("SimulateDustTrak", false))
-	if fyne.CurrentApp().Preferences().String("DustTrak") != "" {
-		chkSimulateDustTrak.SetChecked(false)
-		chkSimulateDustTrak.Disable()
-	}
+	chkSimulateDustTrak.SetChecked(prefs.BoolWithFallback("SimulateDustTrak", false))
 
 	chkSimulatePTrak := widget.NewCheck("Simulate PTrak", func(value bool) {})
-	chkSimulatePTrak.SetChecked(fyne.CurrentApp().Preferences().BoolWithFallback("SimulatePTrak", false))
-	if fyne.CurrentApp().Preferences().String("PTrak") != "" {
-		chkSimulatePTrak.SetChecked(false)
-		chkSimulatePTrak.Disable()
-	}
+	chkSimulatePTrak.SetChecked(prefs.BoolWithFallback("SimulatePTrak", false))
 
 	chksync := widget.NewCheck("Synchronized measuring", func(value bool) {})
-	chksync.SetChecked(fyne.CurrentApp().Preferences().Bool("synchronizedmeasuring"))
+	chksync.SetChecked(prefs.Bool("synchronizedmeasuring"))
 
 	chkmydebug := widget.NewCheck("Debugging", func(value bool) {})
-	chkmydebug.SetChecked(fyne.CurrentApp().Preferences().Bool("mydebug"))
+	chkmydebug.SetChecked(prefs.Bool("mydebug"))
 
 	chkautostart := widget.NewCheck("Autostart measuring", func(value bool) {})
-	chkautostart.SetChecked(fyne.CurrentApp().Preferences().BoolWithFallback("autostartmeasuring", true))
+	chkautostart.SetChecked(prefs.BoolWithFallback("autostartmeasuring", true))
 
-	r1 := canvas.NewRectangle(colornames.Green)
-	r1.FillColor = GetStrokeColor(2)
+	// Färgväljare (Använder nu parentWindow)
+	r1 := canvas.NewRectangle(GetStrokeColor(2))
 	b1 := widget.NewButton("AeroTrak line color:", func() {
 		picker := dialog.NewColorPicker("AeroTrak", "Line Color", func(c color.Color) {
 			r1.FillColor = c
 			r1.Refresh()
-		}, settings)
+		}, parentWindow)
 		picker.Advanced = true
 		picker.Show()
 	})
-	r2 := canvas.NewRectangle(colornames.White)
-	r2.FillColor = GetStrokeColor(1)
+
+	r2 := canvas.NewRectangle(GetStrokeColor(1))
 	b2 := widget.NewButton("DustTrak line color:", func() {
 		picker := dialog.NewColorPicker("DustTrak", "Line Color", func(c color.Color) {
 			r2.FillColor = c
 			r2.Refresh()
-		}, settings)
+		}, parentWindow)
 		picker.Advanced = true
 		picker.Show()
 	})
 
 	r3 := canvas.NewRectangle(GetStrokeColor(0))
 	b3 := widget.NewButton("PTrak line color:", func() {
-		picker := *dialog.NewColorPicker("PTrak", "Line Color", func(c color.Color) {
+		picker := dialog.NewColorPicker("PTrak", "Line Color", func(c color.Color) {
 			r3.FillColor = c
 			r3.Refresh()
-		}, settings)
+		}, parentWindow)
 		picker.Advanced = true
 		picker.Show()
 	})
 
-	f1 := float64(fyne.CurrentApp().Preferences().IntWithFallback("datapoints", 10))
-	data := binding.BindFloat(&f1)
-	slide := widget.NewSliderWithData(2, 100, data)
-	slide.Step = 1
-	entry := widget.NewLabelWithData(binding.FloatToStringWithFormat(data, "Number of datapoints to show: %v"))
-	slide.Refresh()
+	// DATAPOINTSMAX
+	optionsshow := []string{"2", "5", "10", "20", "50", "100"}
+	sparatshow := prefs.IntWithFallback("datapoints", 10)
 
-	f1av := float64(fyne.CurrentApp().Preferences().IntWithFallback("datapoints", 10))
-	dataav := binding.BindFloat(&f1av)
-	slideav := widget.NewSliderWithData(1, 100, dataav)
-	slideav.Step = 1
-	entryav := widget.NewLabelWithData(binding.FloatToStringWithFormat(dataav, "Number of averaged datapoints: %v"))
-	slideav.Refresh()
+	selectshow := widget.NewSelect(optionsshow, func(selected string) {
+		valInt, err := strconv.Atoi(selected)
+		if err == nil {
+			prefs.SetInt("datapoints", valInt)
+			vascharts.SetMaxDatapoints(valInt)
+		}
+	})
+	selectshow.SetSelected(strconv.Itoa(sparatshow))
+	if selectshow.Selected == "" {
+		selectshow.SetSelected("10")
+	}
+	labelshow := widget.NewLabel("Datapoints to show: ")
+
+	// AVERAGEPOINTS
+	optionsav := []string{"1", "2", "5", "10", "20", "50", "100"}
+	sparatav := prefs.IntWithFallback("averagepoints", 10)
+	selectav := widget.NewSelect(optionsav, func(selected string) {
+		valInt, err := strconv.Atoi(selected)
+		if err == nil {
+			prefs.SetInt("averagepoints", valInt)
+		}
+	})
+	selectav.SetSelected(strconv.Itoa(sparatav))
+	labelav := widget.NewLabel("Averaged datapoints: ")
+
+	// SAMPLE INTERVAL
+	optionssa := []string{"1ms", "10ms", "50ms", "100ms", "500ms", "1000ms", "2000ms", "5000ms"}
+	selectsa := widget.NewSelect(optionssa, func(selected string) {
+		var valInt int
+		fmt.Sscanf(selected, "%dms", &valInt)
+
+		if valInt > 0 {
+			prefs.SetInt("sampleinterval", valInt)
+			nyttIntervall := time.Duration(valInt) * time.Millisecond
+			if ActiveMeasurement != nil && ActiveMeasurement.IntervalChan != nil {
+				select {
+				case ActiveMeasurement.IntervalChan <- nyttIntervall:
+				default:
+				}
+			}
+		}
+	})
+	sparatVal := prefs.IntWithFallback("sampleinterval", 1000)
+	selectsa.SetSelected(fmt.Sprintf("%dms", sparatVal))
+	if selectsa.Selected == "" {
+		selectsa.SetSelected("1000ms")
+	}
+	labelsa := widget.NewLabel("Sample Interval: ")
+	containersa := container.NewHBox(labelsa, selectsa)
 
 	documentpath := widget.NewEntry()
-	documentpath.MultiLine = true
+	documentpath.SetText(prefs.StringWithFallback("documentpath", ""))
 
 	documentpathbutton := widget.NewButton("Set Path", func() {
 		dialog.ShowFolderOpen(func(fo fyne.ListableURI, err error) {
 			if err != nil {
 				fyne.LogError("#1 Error on selecting folder", err)
-				dialog.ShowError(err, settings)
+				dialog.ShowError(err, parentWindow)
 				return
 			} else if fo == nil {
 				return
 			}
-			documentpath.Text = fo.Path()
-			documentpath.Refresh()
-		}, settings)
+			documentpath.SetText(fo.Path())
+		}, parentWindow)
 	})
 
-	okbutton := widget.NewButton("OK", func() {
-		fyne.CurrentApp().Preferences().SetInt("datapoints", int(f1))
-		g.measure.Datapoints = int(f1)
-		fyne.CurrentApp().Preferences().SetInt("averagepoints", int(f1av))
-		if fyne.CurrentApp().Preferences().Bool("mydebug") != chkmydebug.Checked {
-			fyne.CurrentApp().Preferences().SetBool("mydebug", chkmydebug.Checked)
-			g.setuplogging() // since myDebug may have changed.
-		}
-		fyne.CurrentApp().Preferences().SetBool("SimulateAeroTrak", chkSimulateAeroTrak.Checked)
-		fyne.CurrentApp().Preferences().SetBool("SimulateDustTrak", chkSimulateDustTrak.Checked)
-		fyne.CurrentApp().Preferences().SetBool("SimulatePTrak", chkSimulatePTrak.Checked)
-		fyne.CurrentApp().Preferences().SetBool("autostartmeasuring", chkautostart.Checked)
-		fyne.CurrentApp().Preferences().SetBool("synchronizedmeasuring", chksync.Checked)
+	// GEMENSAM SPARRUTIN
+	saveAll := func() {
+		prefs.SetBool("mydebug", chkmydebug.Checked)
+		prefs.SetBool("SimulateAeroTrak", chkSimulateAeroTrak.Checked)
+		prefs.SetBool("SimulateDustTrak", chkSimulateDustTrak.Checked)
+		prefs.SetBool("SimulatePTrak", chkSimulatePTrak.Checked)
+		prefs.SetBool("autostartmeasuring", chkautostart.Checked)
+		prefs.SetBool("synchronizedmeasuring", chksync.Checked)
+
 		switch pruningpopup.Selected {
-		case "Save every 5 seconds":
-			fyne.CurrentApp().Preferences().SetInt("savefrequency", 0)
-		case "Save every 10 seconds":
-			fyne.CurrentApp().Preferences().SetInt("savefrequency", 1)
-		case "Save every minute":
-			fyne.CurrentApp().Preferences().SetInt("savefrequency", 2)
+		case pruningoptions[0]:
+			prefs.SetInt("savefrequency", 0)
+		case pruningoptions[1]:
+			prefs.SetInt("savefrequency", 1)
+		case pruningoptions[2]:
+			prefs.SetInt("savefrequency", 2)
 		}
+
 		switch countunitspopup.Selected {
-		case "Δ #":
-			fyne.CurrentApp().Preferences().SetInt("countunits", 1)
-		case "Δ #/m³":
-			fyne.CurrentApp().Preferences().SetInt("countunits", 21201)
-		case "Δ #/ft³":
-			fyne.CurrentApp().Preferences().SetInt("countunits", 600)
+		case countunitsoptions[0]:
+			prefs.SetInt("countunits", 1)
+		case countunitsoptions[1]:
+			prefs.SetInt("countunits", 21201)
+		case countunitsoptions[2]:
+			prefs.SetInt("countunits", 600)
 		}
-		fyne.CurrentApp().Preferences().SetString("documentpath", documentpath.Text)
+
+		prefs.SetString("documentpath", documentpath.Text)
+
 		SetStrokeColor(0, r3.FillColor)
 		SetStrokeColor(1, r2.FillColor)
 		SetStrokeColor(2, r1.FillColor)
@@ -186,170 +226,165 @@ func DoSettings(g *game) error {
 		SetStrokeColor(5, r1.FillColor)
 		SetStrokeColor(6, r1.FillColor)
 		SetStrokeColor(7, r1.FillColor)
-		settings.Close()
+
+		if settingsDialog != nil {
+			settingsDialog.Hide()
+		}
+	}
+
+	okbutton := widget.NewButton("OK", func() {
+		saveAll()
 	})
-	cancelbutton := widget.NewButton("Cancel", func() {
-		settings.Close()
-	})
+
 	instgroup := container.NewGridWithColumns(2, ins1, chkSimulateAeroTrak, ins2, chkSimulateDustTrak, ins3, chkSimulatePTrak)
 	colgroup := container.NewGridWithColumns(2, b1, r1, b2, r2, b3, r3)
-	instcol := container.NewGridWithColumns(2, instgroup, colgroup)
+	topgroup := container.NewGridWithColumns(2, instgroup, colgroup)
 
-	chkgroup := container.New(layout.NewVBoxLayout(), chksync, chkautostart, chkmydebug)
-	pruninggroup := container.NewGridWithRows(2, pruninglabel, pruningpopup)
-	cugroup := container.NewGridWithRows(2, countunitslabel, countunitspopup)
-	group1 := container.NewGridWithColumns(2, pruninggroup, cugroup)
+	containershow := container.NewBorder(nil, nil, labelshow, nil, selectshow)
+	containerav := container.NewBorder(nil, nil, labelav, nil, selectav)
+	pruninggroup := container.NewBorder(nil, nil, pruninglabel, nil, pruningpopup)
+	cugroup := container.NewBorder(nil, nil, countunitslabel, nil, countunitspopup)
+	popupgroup := container.NewVBox(containershow, containerav, containersa, pruninggroup)
 
-	slidegroup := container.NewGridWithRows(2, slide, entry)
-	slidegroup2 := container.NewGridWithRows(2, slideav, entryav)
-	slidegroup3 := container.NewGridWithRows(2, slidegroup, slidegroup2)
+	chkgroup := container.NewVBox(chksync, chkautostart, chkmydebug, cugroup)
+	group2 := container.NewHBox(popupgroup, chkgroup)
 	pathgroup := container.NewGridWithColumns(2, documentpath, documentpathbutton)
-	group2 := container.NewGridWithColumns(2, slidegroup3, chkgroup)
-	c6 := container.NewGridWithColumns(2, cancelbutton, okbutton)
-	c := container.New(layout.NewVBoxLayout(), instcol, group2, group1, pathgroup, layout.NewSpacer(), c6)
-	settings.SetContent(c)
-	settings.CenterOnScreen()
-	settings.Show()
+
+	c := container.NewVBox(topgroup, group2, pathgroup, layout.NewSpacer(), okbutton)
+
+	// Skapa en modal dialog över huvudfönstret!
+	settingsDialog = dialog.NewCustomWithoutButtons("Settings", c, parentWindow)
+	settingsDialog.Resize(fyne.NewSize(650, 500))
+	settingsDialog.Show()
+
 	return nil
 }
+func DoManualSettings(parentWindow fyne.Window) error {
+	prefs := fyne.CurrentApp().Preferences()
 
-func DoFTPSettings(g *game) error {
-	ftpsettings := g.app.NewWindow("FTP Settings")
-	f1ftpserver := fyne.CurrentApp().Preferences().String("ftpserver")
-	f1ftpusername := fyne.CurrentApp().Preferences().String("ftpusername")
-	f1ftppassword := fyne.CurrentApp().Preferences().String("ftppassword")
-	f1ftpdir := fyne.CurrentApp().Preferences().String("ftpdir")
 	f1e1 := widget.NewEntry()
 	f1e2 := widget.NewEntry()
 	f1e3 := widget.NewEntry()
-	f1e4 := widget.NewEntry()
-	sp1 := widget.NewLabel("Please note that the connection information is not stored in a secure way!")
-	spacing := widget.NewLabel(strings.Repeat(string(rune(32)), 30))
-	f1e1.SetText(f1ftpserver)
-	f1e2.SetText(f1ftpusername)
-	f1e3.SetText(f1ftppassword)
-	f1e4.SetText(f1ftpdir)
-	f1e1.MultiLine = false
-	f1e2.MultiLine = false
-	f1e3.MultiLine = false
-	f1e4.MultiLine = false
-	f1t1 := widget.NewLabel("FTP-server: ")
-	f1t2 := widget.NewLabel("FTP-username: ")
-	f1t3 := widget.NewLabel("FTP-password: ")
-	f1t4 := widget.NewLabel("FTP-path: ")
-	okbutton := widget.NewButton("OK", func() {
-		fyne.CurrentApp().Preferences().SetString("ftpserver", f1e1.Text)
-		fyne.CurrentApp().Preferences().SetString("ftpusername", f1e2.Text)
-		fyne.CurrentApp().Preferences().SetString("ftppassword", f1e3.Text)
-		fyne.CurrentApp().Preferences().SetString("ftpdir", f1e4.Text)
-		ftpsettings.Close()
-	})
-	cancelbutton := widget.NewButton("Cancel", func() {
-		ftpsettings.Close()
-	})
-	ftpsettings.SetCloseIntercept(func() {
-		ftpsettings.Close()
-	})
-	c1 := container.NewGridWithColumns(2, sp1, spacing, f1t1, f1e1, f1t2, f1e2, f1t3, f1e3, f1t4, f1e4, cancelbutton, okbutton)
-	c1.Resize(fyne.NewSize(c1.Size().Width*1.5, c1.Size().Height*1.5))
-	ftpsettings.SetContent(c1)
-	ftpsettings.CenterOnScreen()
-	ftpsettings.Show()
-	return nil
-}
 
-func DoManualSettings(g *game) error {
-	msettings := g.app.NewWindow("Manual Settings")
-	spacing := widget.NewLabel(strings.Repeat(string(rune(32)), 35))
-	temp_AeroTrak := fyne.CurrentApp().Preferences().String("AeroTrak")
-	temp_DustTrak := fyne.CurrentApp().Preferences().String("DustTrak")
-	temp_PTrak := fyne.CurrentApp().Preferences().String("PTrak")
-	f1e1 := widget.NewEntry()
-	f1e2 := widget.NewEntry()
-	f1e3 := widget.NewEntry()
-	f1e1.SetText(temp_AeroTrak)
-	f1e2.SetText(temp_DustTrak)
-	f1e3.SetText(temp_PTrak)
-	f1e1.MultiLine = false
-	f1e2.MultiLine = false
-	f1e3.MultiLine = false
-	f1t1 := widget.NewLabel("AeroTrak: ")
-	f1t2 := widget.NewLabel("DustTrak: ")
-	f1t3 := widget.NewLabel("PTrak: ")
-	f1b1 := widget.NewButton("Set", func() {
-		f1e1.SetText("192.168.0.130:502")
+	f1e1.SetText(prefs.String("AeroTrak"))
+	f1e2.SetText(prefs.String("DustTrak"))
+	f1e3.SetText(prefs.String("PTrak"))
+
+	f1b1 := widget.NewButton("Set Default", func() { f1e1.SetText("192.168.0.130:502") })
+	f1b2 := widget.NewButton("Set Default", func() { f1e2.SetText("192.168.0.131:3602") })
+	f1b3 := widget.NewButton("Set Default", func() { f1e3.SetText("COM3") })
+
+	var manualDialog dialog.Dialog
+
+	f2b1 := widget.NewButton("Info", func() {
+		port := prefs.StringWithFallback("AeroTrak", "")
+
+		go func() {
+			r, err := vasinstruments.ModbusAeroTrakgetinfo(port)
+			if err != nil || r == "" {
+				r = "Could not connect to AeroTrak at " + port
+			}
+
+			// Kör UI-anropet säkert på huvudtråden!
+			fyne.Do(func() {
+				dialog.ShowInformation("AeroTrak info", r, parentWindow)
+			})
+		}()
 	})
-	f1b2 := widget.NewButton("Set", func() {
-		f1e2.SetText("192.168.0.131:3602")
+	f2b2 := widget.NewButton("Info", func() {
+		port := prefs.StringWithFallback("DustTrak", "")
+
+		go func() {
+			info := new(vasinstruments.DustTraktype).GetDustTrakinfo(port)
+			if info == "" {
+				info = "Could not connect to DustTrak at " + port
+			}
+
+			dialog.ShowInformation("DustTrak info", info, parentWindow)
+		}()
 	})
-	f1b3 := widget.NewButton("Set", func() {
-		f1e3.SetText("COM3")
+
+	f2b3 := widget.NewButton("Info", func() {
+		// 1. Hämta alla serieportar i datorn
+		msg := vasinstruments.GetallSerialPorts()
+		// 2. Visa den dynamiska listan i dialogrutan
+		dialog.ShowInformation("Available Serial Ports", msg, parentWindow)
 	})
 	clearall := widget.NewButton("Clear", func() {
 		f1e1.SetText("")
 		f1e2.SetText("")
 		f1e3.SetText("")
 	})
-	f2b1 := widget.NewButton("Info", func() {
-		port:= fyne.CurrentApp().Preferences().StringWithFallback("AeroTrak", "")
-		r, _ := vasinstruments.ModbusAeroTrakgetinfo(port)
-		dialog.ShowInformation("AeroTrak info", r, msettings)
-	})
-	f2b2 := widget.NewButton("Info", func() {
-		port := fyne.CurrentApp().Preferences().StringWithFallback("DustTrak", "")
-		dialog.ShowInformation("DustTrak info", new(vasinstruments.DustTraktype).GetDustTrakinfo(port), msettings)
-	})
-	f2b3 := widget.NewButton("Info", func() {
-		new(vasinstruments.PTraktype).PTrakport = fyne.CurrentApp().Preferences().StringWithFallback("PTrak", "")
-		dialog.ShowInformation("PTrak info", "It's a PTrak, ok?", msettings)
-	})
+
 	okbutton := widget.NewButton("OK", func() {
-		fyne.CurrentApp().Preferences().SetString("AeroTrak", f1e1.Text)
-		fyne.CurrentApp().Preferences().SetString("DustTrak", f1e2.Text)
-		fyne.CurrentApp().Preferences().SetString("PTrak", f1e3.Text)
-		msettings.Close()
+		prefs.SetString("AeroTrak", f1e1.Text)
+		prefs.SetString("DustTrak", f1e2.Text)
+		prefs.SetString("PTrak", f1e3.Text)
+
+		if manualDialog != nil {
+			manualDialog.Hide()
+		}
 	})
+
 	cancelbutton := widget.NewButton("Cancel", func() {
-		msettings.Close()
+		if manualDialog != nil {
+			manualDialog.Hide()
+		}
 	})
-	c1 := container.NewGridWithColumns(4, f1t1, f1e1, f1b1, f2b1, f1t2, f1e2, f1b2, f2b2, f1t3, f1e3, f1b3, f2b3, clearall, cancelbutton, okbutton, spacing)
-	c1.Resize(fyne.NewSize(c1.Size().Width*1.5, c1.Size().Height*1.5))
-	msettings.SetCloseIntercept(func() {
-		msettings.Close()
-	})
-	msettings.SetContent(c1)
-	msettings.CenterOnScreen()
-	msettings.Show()
+
+	// 🟢 Använd widget.Form med HBox för knapparna – då linjerar allting knivskarpt!
+	form := widget.NewForm(
+		widget.NewFormItem("AeroTrak:", container.NewBorder(nil, nil, nil, container.NewHBox(f1b1, f2b1), f1e1)),
+		widget.NewFormItem("DustTrak:", container.NewBorder(nil, nil, nil, container.NewHBox(f1b2, f2b2), f1e2)),
+		widget.NewFormItem("PTrak:", container.NewBorder(nil, nil, nil, container.NewHBox(f1b3, f2b3), f1e3)),
+	)
+
+	btnGroup := container.NewGridWithColumns(3, clearall, cancelbutton, okbutton)
+	content := container.NewVBox(form, layout.NewSpacer(), btnGroup)
+
+	manualDialog = dialog.NewCustomWithoutButtons("Manual Settings", content, parentWindow)
+	manualDialog.Resize(fyne.NewSize(600, 240))
+	manualDialog.Show()
+
 	return nil
 }
-func DoAeroTrakSettings(g *game) error {
-	msettings := g.app.NewWindow("Special AeroTrak Settings")
-	// spacing := widget.NewLabel(strings.Repeat(string(rune(32)), 35))
-	temp_ATcmd := fyne.CurrentApp().Preferences().String("aerotrakcmd")
-	f1e1 := widget.NewEntry()
-	f1e1.Resize(fyne.NewSize(300, 400))
-	f1e1.SetText(temp_ATcmd)
-	f1e1.MultiLine = true
-	f1b1 := widget.NewButton("Set", func() {
-		// f1e1.SetText(g.measure.at.setupaerotrakcode())
+func DoAeroTrakSettings(parentWindow fyne.Window) error {
+	prefs := fyne.CurrentApp().Preferences()
+
+	f1e1 := widget.NewMultiLineEntry()
+	f1e1.SetText(prefs.String("aerotrakcmd"))
+
+	// 1. Deklarera dialogvariabeln först
+	var aeroDialog dialog.Dialog
+
+	f1b1 := widget.NewButton("Set Defaults", func() {
+		// Logik för standardkommandon (i gorrutin om det görs tunga anrop)
+		go func() {
+			f1e1.SetText("DEFAULT_COMMANDS_HERE")
+		}()
 	})
+
 	okbutton := widget.NewButton("OK", func() {
-		fyne.CurrentApp().Preferences().SetString("aerotrakcmd", f1e1.Text)
-		msettings.Close()
+		prefs.SetString("aerotrakcmd", f1e1.Text)
+
+		if aeroDialog != nil {
+			aeroDialog.Hide()
+		}
 	})
+
 	cancelbutton := widget.NewButton("Cancel", func() {
-		msettings.Close()
+		if aeroDialog != nil {
+			aeroDialog.Hide()
+		}
 	})
+
 	c0 := container.NewGridWithColumns(3, f1b1, cancelbutton, okbutton)
-	mx := container.NewMax(f1e1)
-	c1 := container.NewBorder(nil, c0, nil, nil, mx)
-	//	c1.Resize(fyne.NewSize(c1.Size().Width*10, c1.Size().Height))
-	msettings.SetCloseIntercept(func() {
-		msettings.Close()
-	})
-	msettings.SetContent(c1)
-	msettings.CenterOnScreen()
-	msettings.Resize(fyne.NewSize(g.winSize.Width-100, g.winSize.Height))
-	msettings.Show()
+	c1 := container.NewBorder(nil, c0, nil, nil, f1e1)
+
+	// 2. Skapa den modala dialogen över parentWindow
+	aeroDialog = dialog.NewCustomWithoutButtons("Special AeroTrak Settings", c1, parentWindow)
+	aeroDialog.Resize(fyne.NewSize(400, 300))
+	aeroDialog.Show()
+
 	return nil
 }

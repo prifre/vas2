@@ -5,3 +5,20 @@ documentation
 vasdata
 old
 __de*
+Plaintext
+# Byggda binärer och arkiv
+*.exe
+*.zip
+*.tar.gz
+vas
+vas.exe
+
+# Fyne-cross och tillfälliga byggmappar
+fyne-cross/
+vas_win/
+vas_windows/
+vas_linux/
+vas_mac/
+
+# VS Code-inställningar (valfritt)
+.vscode/

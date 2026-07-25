@@ -14,6 +14,9 @@ import (
 func Doscreenshot(currentwindow fyne.Window) string {
 	var err error
 	img := currentwindow.Canvas().Capture()
+	if img == nil {
+		return ""
+	}
 	time.Sleep(time.Second)
 	t := time.Now().Format(time.RFC3339)
 	t = strings.Replace(t, "-", "", 99)
@@ -33,7 +36,7 @@ func Doscreenshot(currentwindow fyne.Window) string {
 		}
 	}
 
-	hd:=fyne.CurrentApp().Preferences().String("homedir")
+	hd := fyne.CurrentApp().Preferences().String("homedir")
 	err = Saveimg(img2, filepath.Join(hd, fn))
 	if err != nil {
 		return ""

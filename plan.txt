@@ -1,4 +1,7 @@
 TODO:
+
+
+
     check gracefulness when unplug cable/replug cable
     get Macitosh & Ubuntu working!
     Check for AeroTrak version and handle that better

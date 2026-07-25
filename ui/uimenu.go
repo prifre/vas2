@@ -1,143 +1,196 @@
 package ui
 
 import (
-	"fmt"
-	"log"
-	"os"
-	"path/filepath"
-	"vas/general"
-	"vas/vasdatabase"
-
-	"time"
+	"vas2/general"
+	"vas2/vascharts"
+	"vas2/vasftp"
+	"vas2/vasinstruments"
+	"vas2/vasmeasure"
 
 	"fyne.io/fyne/v2"
-
-	//	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/driver/desktop"
 )
 
-// application menu
-func BuildMenu() *fyne.MainMenu {
-	// var err error
-	// a quit item will be appended to our first menu
-	var err error
-	var msg string
-	g :=new(game)
-	mFile := fyne.NewMenu("File",
+var mm fyne.Window
+
+// SetupMenus bygger och sätter huvudmenyn på fönstret
+func SetupMenus(window fyne.Window) {
+	nmm := fyne.NewMainMenu(
+		BuildFileMenu(window),
+		BuildMeasurementMenu(window),
+		BuildHelpMenu(window),
+		BuildTestMenu(window),
+	)
+	window.SetMainMenu(nmm)
+}
+
+func BuildFileMenu(window fyne.Window) *fyne.Menu {
+	// Skapa Quit-objektet
+	itemQuit := fyne.NewMenuItem("Quit", func() {
+		general.Closeapp(window)
+	})
+	// Koppla Ctrl+Q som genväg
+	itemQuit.Shortcut = &desktop.CustomShortcut{KeyName: fyne.KeyQ, Modifier: fyne.KeyModifierControl}
+
+	return fyne.NewMenu("File",
 		fyne.NewMenuItem("Setup instruments...", func() {
-			DoSetupInstruments()
+			result := vasinstruments.DoSetupInstruments()
+			dialog.ShowInformation("Setup Instruments result", result, window)
 		}),
 		fyne.NewMenuItem("FTP settings...", func() {
-			DoFTPSettings(g)
+			vasftp.DoFTPSettings(window)
 		}),
-		fyne.NewMenuItem("Settings...", func() {
-			DoSettings(g)
-		}),
-		fyne.NewMenuItem("Manual Settings...", func() {
-			DoManualSettings(g)
-		}),
-		fyne.NewMenuItem("Special Aerotrak Settings...", func() {
-			g.measure.StopMeasurement()
-			DoAeroTrakSettings(g)
-		}))
-	// mEdit := fyne.NewMenu("Edit",
-	// 	fyne.NewMenuItem("Cut", func() { dialog.ShowInformation("Cut? ", "Not implemented, sorry!", g.window) }),
-	// 	fyne.NewMenuItem("Copy", func() { dialog.ShowInformation("Copy? ", "Not implemented, sorry!", g.window) }),
-	// 	fyne.NewMenuItem("Paste", func() { dialog.ShowInformation("Paste? ", "Not implemented, sorry!", g.window) }))
-	mMeasurements := fyne.NewMenu("Measurements",
-		fyne.NewMenuItem("Start Measuring", func() {
-			g.measure.StartMeasurement()
-		}),
-		fyne.NewMenuItem("End Measuring", func() {
-			g.measure.StopMeasurement()
-			new(vasdatabase.DBtype).Closemeasurement()
-			// log.Printf("Measurement '%v' (%v) stopped", g.d.Mname, g.d.Nanostamp)
-			// fyne.CurrentApp().Preferences().SetString("nanostamp", "0")
-			// g.d.Mname = ""
-		}),
+		fyne.NewMenuItem("Settings...", func() { DoSettings(window) }),
+		fyne.NewMenuItem("Manual Settings...", func() { DoManualSettings(window) }),
+		fyne.NewMenuItem("Special Aerotrak Settings...", func() { DoAeroTrakSettings(window) }),
 		fyne.NewMenuItemSeparator(),
-		fyne.NewMenuItem("Measurements maintainance", func() {
-			g.measure.StopMeasurement()
-			DoMeasurements()
+		itemQuit, // Lägg till objektet med genvägen
+	)
+}
+
+func BuildEditMenu(window fyne.Window) *fyne.Menu {
+	return fyne.NewMenu("Edit",
+		fyne.NewMenuItem("Cut", func() { dialog.ShowInformation("Cut", "Not implemented, sorry!", window) }),
+		fyne.NewMenuItem("Copy", func() { dialog.ShowInformation("Copy", "Not implemented, sorry!", window) }),
+		fyne.NewMenuItem("Paste", func() { dialog.ShowInformation("Paste", "Not implemented, sorry!", window) }),
+	)
+}
+
+func BuildMeasurementMenu(window fyne.Window) *fyne.Menu {
+	itemNewStart := fyne.NewMenuItem("Start New Measurement", func() {
+		// 1. Stoppa pågående mätning
+		UIstopmeasurement()
+
+		// 2. Tvinga nytt nanostamp i Preferences & instans
+		fyne.CurrentApp().Preferences().SetString("nanostamp", "0")
+
+		// 3. Skapa ny mätinstans
+		ActiveMeasurement = vasmeasure.SetupMeasurements(ActiveDatabase)
+		ActiveMeasurement.D.Nanostamp = 0
+		ActiveMeasurement.D.Mname = ""
+
+		// 4. Starta mätningen (sätter upp nya instrument & SQLite-rad)
+		UIstartmeasurement()
+
+		// 5. VIKTIGT: Skapa en ny kanal och starta om bakgrundsloopen!
+		ChartUpdateChan = make(chan []int32, vasmeasure.Datapointsmax)
+
+		// Starta mätningsloopen
+		go ActiveMeasurement.Measure(ChartUpdateChan, ActiveMeasurement.IntervalChan)
+
+		// Starta UI-lyssnaren
+		go func() {
+			for mdata := range ChartUpdateChan {
+				dataCopy := make([]int32, len(mdata))
+				copy(dataCopy, mdata)
+
+				fyne.CurrentApp().Driver().DoFromGoroutine(func() {
+					vascharts.UpdateChart(ActiveCharts, dataCopy)
+				}, false)
+			}
+		}()
+	})
+	itemNewStart.Shortcut = &desktop.CustomShortcut{KeyName: fyne.KeyN, Modifier: fyne.KeyModifierControl}
+
+	itemStart := fyne.NewMenuItem("Start Measurement", func() {
+		UIstartmeasurement()
+	})
+	itemStart.Shortcut = &desktop.CustomShortcut{KeyName: fyne.KeyS, Modifier: fyne.KeyModifierControl}
+
+	itemEnd := fyne.NewMenuItem("End Measurement", func() {
+		UIstopmeasurement()
+	})
+	itemEnd.Shortcut = &desktop.CustomShortcut{KeyName: fyne.KeyE, Modifier: fyne.KeyModifierControl}
+
+	itemPause := fyne.NewMenuItem("Pause Measurement", func() {
+		if ActiveMeasurement != nil {
+			ActiveMeasurement.Paused = true
+		}
+	})
+	itemMaintainance := fyne.NewMenuItem("Measurements maintenance", func() {
+		// Snygg hantering av underfönstret för att undvika nollpekarkrascher
+		if mm == nil {
+			mm = fyne.CurrentApp().NewWindow("Measurements Maintenance")
+			mm.SetOnClosed(func() {
+				mm = nil
+			})
+			ActiveDatabase.MeasurementsMaintainance(mm)
+			mm.Show()
+		} else {
+			mm.RequestFocus()
+		}
+	})
+	itemMaintainance.Shortcut = &desktop.CustomShortcut{KeyName: fyne.KeyM, Modifier: fyne.KeyModifierControl}
+	return fyne.NewMenu("Measurements",
+		itemNewStart,
+		itemStart,
+		itemPause,
+		itemEnd,
+		fyne.NewMenuItemSeparator(),
+		itemMaintainance,
+		fyne.NewMenuItem("Export all measurements to textfiles", func() {
+			err := ActiveDatabase.Exporttotext()
+			if err != nil {
+				dialog.ShowInformation("Measurements export failed ", err.Error(), window)
+			} else {
+				dialog.ShowInformation("All measurements exported ", "ok", window)
+			}
 		}),
-		fyne.NewMenuItem("Save screen", func() {
-			time.Sleep(time.Second)
-			general.Doscreenshot(g.window)
-		}),
-		fyne.NewMenuItem("Upload to FTP-server", func() {
-			var fn string
-			for i := 0; i < len(tbl); i++ {
-				fn = tbl[i] + ".txt"
-				hd:=fyne.CurrentApp().Preferences().String("homedir")
-				_, err = os.Stat(filepath.Join(hd, fn))
+		fyne.NewMenuItem("Upload textfiles to FTP-server", func() {
+			go func() {
+				err := vasftp.UploadtoFTPserver()
+				// dialog.ShowInformation går utmärkt att anropa från gorutiner i Fyne
 				if err != nil {
-					log.Print("File ", fn, " not found: ", err.Error())
+					dialog.ShowInformation("FTP Upload", err.Error(), window)
 				} else {
-					Doftp(fn)
+					dialog.ShowInformation("FTP Upload", "Upload complete!", window)
 				}
-			}
-			fn = general.Doscreenshot(g.window)
-			if fn > "" {
-				Doftp(fn)
-			}
+			}()
 		}),
-		fyne.NewMenuItem("Export all measurements to textfile", func() {
-			g.measure.StopMeasurement()
-			msg, err = new(vasdatabase.DBtype).Exporttotext()
-			if err != nil {
-				dialog.ShowInformation("Error exporting: ", msg, g.window)
-			} else {
-				dialog.ShowInformation("Export report", msg, g.window)
-			}
-		}),
-		fyne.NewMenuItem("Export current measurement to textfile", func() {
-			g.measure.StopMeasurement()
-			msg, err = new(vasdatabase.DBtype).Exportonetotext()
-			if err != nil {
-				dialog.ShowInformation("Error exporting: ", msg, g.window)
-			} else {
-				dialog.ShowInformation("Export report", msg, g.window)
-			}
-		}),
-		// fyne.NewMenuItem("Repair database", func() {
-		// 	DorepairDatabase(g.d, g.app)
-		// }),
 		fyne.NewMenuItem("Remove redundant measurements", func() {
-			g.measure.StopMeasurement()
-			new(vasdatabase.DBtype).Pruning()
+			ActiveDatabase.Pruning()
 		}),
 		fyne.NewMenuItem("Open storage location", func() {
-			Openstoragelocation(g)
-		}))
-	mHelp := fyne.NewMenu("Help",
+			general.Openstoragelocation()
+		}),
+	)
+}
+
+func BuildHelpMenu(window fyne.Window) *fyne.Menu {
+	return fyne.NewMenu("Help",
 		fyne.NewMenuItem("About...", func() {
-			t := "\nProgram for measuring with TSI\nAeroTrak, DustTrak and PTrak\n\nby Peter Freund\n\n"
-			t = t + fmt.Sprintf("Version %v", version)
-			g.showlogo2()
-			dialog.ShowInformation("About...", t, g.window)
-			g.showlogo2()
+			general.ShowAbout(window)
 		}),
 		fyne.NewMenuItem("Copyright info...", func() {
-			t := "All packages used are below:\n"
-			t += "Fyne - fyne.io (fyne.io/fyne/v2)\n"
-			t += "Sqlite3 - (github.com/mattn/go-sqlite3)\n"
-			t += "FTP - (github.com/jlaffaye/ftp)\n"
-			t += "modbus - (github.com/goburrow/modbus)\n"
-			t += "Excelexport - (github.com/360EntSecGroup-Skylar/excelize)\n"
-			t += "Serial - (github.com/jacobsa/go-serial/serial)\n"
+			t := "All packages used are below:\n" +
+				"Fyne - fyne.io (fyne.io/fyne/v2)\n" +
+				"Sqlite3 - (github.com/mattn/go-sqlite3)\n" +
+				"FTP - (github.com/jlaffaye/ftp)\n" +
+				"modbus - (github.com/goburrow/modbus)\n" +
+				"Excelexport - (github.com/360EntSecGroup-Skylar/excelize)\n" +
+				"Serial - (github.com/jacobsa/go-serial/serial)\n"
 
-			dialog.ShowInformation("About...", t, g.window)
+			dialog.ShowInformation("Copyright", t, window)
 		}),
 		fyne.NewMenuItem("Check for update", func() {
-			msg:=general.Checkforupdate()
-			dialog.ShowInformation("Update information...",msg, g.window)
-
+			msg := general.Checkforupdate()
+			dialog.ShowInformation("Update information...", msg, window)
 		}),
 		fyne.NewMenuItemSeparator(),
 		fyne.NewMenuItem("Open the VISIBLE AIR SYSTEM webpage!", func() {
-			g.openurl("http://www.prifre.com/vas")
+			general.Openurl("http://www.prifre.com/vas")
 		}),
 	)
-	return fyne.NewMainMenu(mFile, mMeasurements, mHelp)
 }
 
+func BuildTestMenu(window fyne.Window) *fyne.Menu {
+	return fyne.NewMenu("Tests",
+		fyne.NewMenuItem("Test Appinfo()", func() {
+			dialog.ShowInformation("Appinfo", general.Getappinfo(), window)
+		}),
+		fyne.NewMenuItem("Test FillDatabase()", func() {
+			ActiveDatabase.FillDatabase()
+		}),
+	)
+}

@@ -4,18 +4,17 @@ import (
 	"fmt"
 	"log"
 	"strconv"
-	"strings"
 	"time"
+	"vas2/vascharts"
 
-	"fyne.io/fyne/v2"
 	"github.com/360EntSecGroup-Skylar/excelize"
 )
 
 func Fixtime(t string) string {
-	var parsedtime time.Time
-	//	t = strings.Replace(t, "T", " ", 1)
-	//	t = t[:19]
-	parsedtime, _ = time.Parse(time.RFC3339, t)
+	parsedtime, err := time.Parse(time.RFC3339, t)
+	if err != nil {
+		return t // Returnera originalsträngen om parsningsfelet uppstår
+	}
 	s := fmt.Sprintf("%v", parsedtime)
 	if len(s) > 19 {
 		s = s[11:19]
@@ -24,75 +23,97 @@ func Fixtime(t string) string {
 }
 
 func (db *DBtype) Exporttoexcel(nanostamp string, fn string) {
-	var mname, n1, d1, t1 []string
+	var mname, n1, t1 []string
 	var err error
-	var v int
-	xlsx := excelize.NewFile()
-	ct:=fyne.CurrentApp().Preferences().String("charttitles")
-	ChartTitles:=strings.Split(ct,",")
-	//	var style int
-	//	style, err = xlsx.NewStyle(`{"number_format": 22}`)
+
+	// Validera nanostamp så det faktiskt är ett nummer
+	nanoInt, err := strconv.ParseInt(nanostamp, 10, 64)
 	if err != nil {
-		log.Println("0# Exportexcel ", err.Error())
+		log.Println("#Exporttoexcel Invalid nanostamp:", nanostamp)
+		return
 	}
-	if mname, err = db.Getsql("SELECT mname FROM tblMain WHERE nanostamp=" + nanostamp); err != nil {
-		log.Println("#1 Exporttoexcel Error", err.Error())
-	}
-	if n1, err = db.Getsql("SELECT note FROM tblMain WHERE nanostamp=" + nanostamp); err != nil {
-		log.Println("#1 Exporttoexcel Error", err.Error())
-	}
-	if t1, err = db.Getsql(fmt.Sprintf("SELECT tstamp FROM tblMain WHERE nanostamp=%v", nanostamp)); err != nil {
-		log.Println("#2 Exporttoexcel PTrakError", err.Error())
-	}
-	xlsx.SetCellValue("Sheet1", "A1", t1[0]+"  "+mname[0]+", "+n1[0])
 
-	if t1, err = db.Getsql(fmt.Sprintf("SELECT tstamp FROM tblPTrak WHERE nanostamp=%v", nanostamp)); err != nil {
-		log.Println("#2 Exporttoexcel PTrakError", err.Error())
+	xlsx := excelize.NewFile()
+
+	// 1. Hämta huvudinfo säkert
+	mname, _ = db.Getsql(fmt.Sprintf("SELECT mname FROM tblMain WHERE nanostamp=%d", nanoInt))
+	n1, _ = db.Getsql(fmt.Sprintf("SELECT note FROM tblMain WHERE nanostamp=%d", nanoInt))
+	t1, _ = db.Getsql(fmt.Sprintf("SELECT tstamp FROM tblMain WHERE nanostamp=%d", nanoInt))
+
+	// Bygg rubriksträng säkert utan krasch
+	headerTstamp := ""
+	headerMname := ""
+	headerNote := ""
+
+	if len(t1) > 0 {
+		headerTstamp = t1[0]
 	}
-	if d1, err = db.Getsql("SELECT mdata FROM tblPTrak WHERE nanostamp=" + nanostamp); err != nil {
-		log.Println("#2.1 Exporttoexcel PTrak Error", err.Error())
+	if len(mname) > 0 {
+		headerMname = mname[0]
 	}
-	for i := 0; i < len(d1); i++ {
-		v, _ = strconv.Atoi(d1[i])
+	if len(n1) > 0 {
+		headerNote = n1[0]
+	}
+
+	xlsx.SetCellValue("Sheet1", "A1", fmt.Sprintf("%s  %s, %s", headerTstamp, headerMname, headerNote))
+
+	// 2. PTrak
+	t1, err = db.Getsql(fmt.Sprintf("SELECT tstamp FROM tblPTrak WHERE nanostamp=%d", nanoInt))
+	if err == nil && len(t1) > 0 {
+		d1, _ := db.Getsql(fmt.Sprintf("SELECT mdata FROM tblPTrak WHERE nanostamp=%d", nanoInt))
+
 		xlsx.SetCellValue("Sheet1", "B2", "PTrak")
-		xlsx.SetCellValue("Sheet1", "C2", ChartTitles[0])
-		xlsx.SetCellValue("Sheet1", fmt.Sprintf("B%v", i+3), Fixtime(t1[i]))
-		xlsx.SetCellValue("Sheet1", fmt.Sprintf("C%v", i+3), v)
+		xlsx.SetCellValue("Sheet1", "C2", vascharts.ChartTitles[0])
+
+		for i := 0; i < len(d1) && i < len(t1); i++ {
+			v, _ := strconv.Atoi(d1[i])
+			xlsx.SetCellValue("Sheet1", fmt.Sprintf("B%d", i+3), Fixtime(t1[i]))
+			xlsx.SetCellValue("Sheet1", fmt.Sprintf("C%d", i+3), v)
+		}
 	}
 
-	if t1, err = db.Getsql(fmt.Sprintf("SELECT tstamp FROM tblDustTrak WHERE nanostamp=%v", nanostamp)); err != nil {
-		log.Println("#3 Exporttoexcel DustTrakError", err.Error())
-	}
-	if d1, err = db.Getsql("SELECT mdata FROM tblDustTrak WHERE nanostamp=" + nanostamp); err != nil {
-		log.Println("#3.1 Exporttoexcel DustTrak Error", err.Error())
-	}
-	for i := 0; i < len(d1); i++ {
-		v, _ = strconv.Atoi(d1[i])
+	// 3. DustTrak
+	t1, err = db.Getsql(fmt.Sprintf("SELECT tstamp FROM tblDustTrak WHERE nanostamp=%d", nanoInt))
+	if err == nil && len(t1) > 0 {
+		d1, _ := db.Getsql(fmt.Sprintf("SELECT mdata FROM tblDustTrak WHERE nanostamp=%d", nanoInt))
+
 		xlsx.SetCellValue("Sheet1", "D2", "DustTrak")
-		xlsx.SetCellValue("Sheet1", "E2", ChartTitles[1])
-		xlsx.SetCellValue("Sheet1", fmt.Sprintf("D%v", i+3), Fixtime(t1[i]))
-		xlsx.SetCellValue("Sheet1", fmt.Sprintf("E%v", i+3), v)
+		xlsx.SetCellValue("Sheet1", "E2", vascharts.ChartTitles[1])
+
+		for i := 0; i < len(d1) && i < len(t1); i++ {
+			v, _ := strconv.Atoi(d1[i])
+			xlsx.SetCellValue("Sheet1", fmt.Sprintf("D%d", i+3), Fixtime(t1[i]))
+			xlsx.SetCellValue("Sheet1", fmt.Sprintf("E%d", i+3), v)
+		}
 	}
 
-	if t1, err = db.Getsql(fmt.Sprintf("SELECT tstamp FROM tblAeroTrak WHERE nanostamp=%v", nanostamp)); err != nil {
-		log.Println("#4 Exporttoexcel AeroTrakError", err.Error())
-	}
-	for c := 0; c < 6; c++ {
-		if d1, err = db.Getsql(fmt.Sprintf("SELECT ch%v FROM tblAeroTrak WHERE nanostamp=%v", c+1, nanostamp)); err != nil {
-			log.Println("#4 Exporttoexcel AeroTrakError", err.Error())
+	// 4. AeroTrak (6 kanaler)
+	t1, err = db.Getsql(fmt.Sprintf("SELECT tstamp FROM tblAeroTrak WHERE nanostamp=%d", nanoInt))
+	if err == nil && len(t1) > 0 {
+		xlsx.SetCellValue("Sheet1", "F2", "AeroTrak")
+
+		// Sätt tidsstämplarna i F-kolumnen en gång
+		for i := 0; i < len(t1); i++ {
+			xlsx.SetCellValue("Sheet1", fmt.Sprintf("F%d", i+3), Fixtime(t1[i]))
 		}
-		for i := 0; i < len(d1); i++ {
-			v, _ = strconv.Atoi(d1[i])
-			xlsx.SetCellValue("Sheet1", "F2", "AeroTrak")
-			xlsx.SetCellValue("Sheet1", fmt.Sprintf("%v2", "GHIJKL"[c:c+1]), ChartTitles[2+c])
-			//			xlsx.SetCellStyle("Sheet1", fmt.Sprintf("F%v", i+3), fmt.Sprintf("F%v", i+3), style)
-			xlsx.SetCellValue("Sheet1", fmt.Sprintf("F%v", i+3), Fixtime(t1[i]))
-			xlsx.SetCellValue("Sheet1", fmt.Sprintf("%v%v", "GHIJKL"[c:c+1], i+3), v)
+
+		// Hämta och sätt kanaler G-L
+		colLetters := []string{"G", "H", "I", "J", "K", "L"}
+		for c := 0; c < 6; c++ {
+			xlsx.SetCellValue("Sheet1", fmt.Sprintf("%s2", colLetters[c]), vascharts.ChartTitles[2+c])
+
+			d1, err := db.Getsql(fmt.Sprintf("SELECT ch%d FROM tblAeroTrak WHERE nanostamp=%d", c+1, nanoInt))
+			if err == nil {
+				for i := 0; i < len(d1); i++ {
+					v, _ := strconv.Atoi(d1[i])
+					xlsx.SetCellValue("Sheet1", fmt.Sprintf("%s%d", colLetters[c], i+3), v)
+				}
+			}
 		}
 	}
-	// Set active sheet of the workbook.
-	// Save xlsx file by the given path.
+
+	// Spara Excel-filen
 	if err := xlsx.SaveAs(fn); err != nil {
-		log.Println(err.Error())
+		log.Println("#Exporttoexcel SaveAs Error:", err.Error())
 	}
 }

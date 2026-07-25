@@ -5,28 +5,33 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"fyne.io/fyne/v2/app"
 )
 
 func TestCreateTables(t *testing.T) {
+	a := app.NewWithID("vas2")
+	a.NewWindow("vas2")
 	t.Log("Running database CreateTables test")
 	db := new(DBtype)
-	db.Setupdb()
+	err := db.SetupDatabase()
+	if err != nil {
+		fmt.Println(err)
+	}
 	db.Mdata[0] = 123
-	db.Nanostamp = 1621802710870044900
+	db.Nanostamp = time.Now().UnixNano() // 1621802710870044900
 	db.Createtables()
 	db.Addmeasurement()
 	// delete database
 	//create new database}
-
 }
-
 func TestAddMeasurement(t *testing.T) {
 	var sq string
 	var n1 []string
 	var err error
 	t.Log("AddMeasurement test")
 	db := new(DBtype)
-	db.Setupdb()
+	db.SetupDatabase()
 	db.Nanostamp = 1621802710870044900
 	db.Tstamp = time.Now().Format(time.RFC3339)
 	db.Mname = "Measurement" + db.Tstamp
@@ -35,7 +40,7 @@ func TestAddMeasurement(t *testing.T) {
 	db.Mname = strings.Replace(db.Mname, ":", "", 99)
 	db.Mname = strings.Replace(db.Mname, ".", "", 99)
 	db.Mname = db.Mname[:26]
-	db.Mdata = [8]int32{-1, -1, -1, -1, -1, -1, -1, -1}
+	db.Mdata = []int32{-1, -1, -1, -1, -1, -1, -1, -1}
 	db.Addmeasurement()
 	for i := 0; i < len(db.Mdata); i++ {
 		db.Mdata[i] = 123 // PTrak = 0
@@ -52,11 +57,4 @@ func TestAddMeasurement(t *testing.T) {
 	if n1[0] != "123" {
 		t.Error("PTrak mdata failed:", n1, err)
 	}
-}
-
-func Testexporttotext(t *testing.T) {
-	t.Log("Test Exporttotext")
-	db := new(DBtype)
-	db.Setupdb()
-	db.Exporttotext()
 }

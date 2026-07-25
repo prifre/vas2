@@ -7,7 +7,7 @@ import (
 func TestFixtime(t *testing.T) {
 	t.Log("Running database CreateTables test")
 	db := new(DBtype)
-	db.Setupdb()
+	db.SetupDatabase()
 	db.Mdata[0] = 123
 	db.Nanostamp = 1621802710870044900
 	db.Createtables()
@@ -20,6 +20,6 @@ func TestFixtime(t *testing.T) {
 func TestExporttotext(t *testing.T) {
 	t.Log("Test Exporttotext")
 	db := new(DBtype)
-	db.Setupdb()
+	db.SetupDatabase()
 	db.Exporttotext()
 }
