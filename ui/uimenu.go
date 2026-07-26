@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"log"
+	"os/user"
 	"vas2/general"
 	"vas2/vascharts"
 	"vas2/vasftp"
@@ -16,12 +18,25 @@ var mm fyne.Window
 
 // SetupMenus bygger och sätter huvudmenyn på fönstret
 func SetupMenus(window fyne.Window) {
-	nmm := fyne.NewMainMenu(
-		BuildFileMenu(window),
-		BuildMeasurementMenu(window),
-		BuildHelpMenu(window),
-		BuildTestMenu(window),
-	)
+	var nmm *fyne.MainMenu
+	currentUser, err := user.Current()
+	if err != nil {
+		log.Fatalf("Kunde inte hämta användare: %v", err)
+	}
+	if currentUser.Name == "prifre" {
+		nmm = fyne.NewMainMenu(
+			BuildFileMenu(window),
+			BuildMeasurementMenu(window),
+			BuildHelpMenu(window),
+			BuildTestMenu(window),
+		)
+	} else {
+		nmm = fyne.NewMainMenu(
+			BuildFileMenu(window),
+			BuildMeasurementMenu(window),
+			BuildHelpMenu(window),
+		)
+	}
 	window.SetMainMenu(nmm)
 }
 

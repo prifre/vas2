@@ -1,3 +1,0 @@
-Testing procedure:
-govulncheck ./...
-varje go fil via AI?!
