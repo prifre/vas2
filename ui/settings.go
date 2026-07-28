@@ -86,7 +86,7 @@ func DoSettings(parentWindow fyne.Window) error {
 	chkmydebug.SetChecked(prefs.Bool("mydebug"))
 
 	chkautostart := widget.NewCheck("Autostart measuring", func(value bool) {})
-	chkautostart.SetChecked(prefs.BoolWithFallback("autostartmeasuring", true))
+	chkautostart.SetChecked(prefs.BoolWithFallback("autostartmeasuring", false))
 
 	// Färgväljare (Använder nu parentWindow)
 	r1 := canvas.NewRectangle(GetStrokeColor(2))
@@ -121,7 +121,7 @@ func DoSettings(parentWindow fyne.Window) error {
 
 	// DATAPOINTSMAX
 	optionsshow := []string{"2", "5", "10", "20", "50", "100"}
-	sparatshow := prefs.IntWithFallback("datapoints", 10)
+	sparatshow := prefs.IntWithFallback("datapoints", 100)
 
 	selectshow := widget.NewSelect(optionsshow, func(selected string) {
 		valInt, err := strconv.Atoi(selected)
@@ -165,7 +165,7 @@ func DoSettings(parentWindow fyne.Window) error {
 			}
 		}
 	})
-	sparatVal := prefs.IntWithFallback("sampleinterval", 1000)
+	sparatVal := prefs.IntWithFallback("sampleinterval", 10)
 	selectsa.SetSelected(fmt.Sprintf("%dms", sparatVal))
 	if selectsa.Selected == "" {
 		selectsa.SetSelected("1000ms")

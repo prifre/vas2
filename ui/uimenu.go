@@ -47,6 +47,7 @@ func BuildFileMenu(window fyne.Window) *fyne.Menu {
 	})
 	// Koppla Ctrl+Q som genväg
 	itemQuit.Shortcut = &desktop.CustomShortcut{KeyName: fyne.KeyQ, Modifier: fyne.KeyModifierControl}
+	itemQuit.IsQuit = true
 
 	return fyne.NewMenu("File",
 		fyne.NewMenuItem("Setup instruments...", func() {
@@ -207,5 +208,35 @@ func BuildTestMenu(window fyne.Window) *fyne.Menu {
 		fyne.NewMenuItem("Test FillDatabase()", func() {
 			ActiveDatabase.FillDatabase()
 		}),
-	)
+		fyne.NewMenuItem("Clear all prefs and data", func() {
+			// CLEAR ALL PREFS
+			general.ClearPrefsFromJSONKeys("com.prifre.vas")
+			ClearAllVasPreferences()
+		}))
+}
+
+func ClearAllVasPreferences() {
+	p := fyne.CurrentApp().Preferences()
+
+	// Lista på alla nycklar som appen sparar
+	keys := []string{
+		"dbfilename",
+		"documentpath",
+		"excelfile",
+		"homedir",
+		"vaslog",
+		"winHeight",
+		"winWidth",
+		"datapoints",
+		"countunits",
+		"averagepoints",
+		"sampleinterval",
+		"synchronizedmeasuring",
+		"autostartmeasuring",
+	}
+
+	// Radera alla nycklar ur Fynes minnes-cache
+	for _, k := range keys {
+		p.RemoveValue(k)
+	}
 }

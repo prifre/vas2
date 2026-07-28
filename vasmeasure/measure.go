@@ -30,7 +30,6 @@ type Measuretype struct {
 	Paused                bool
 	Endmeasuring          bool
 	IsRunning             bool
-	Datapoints            int
 	IntervalChan          chan time.Duration
 	SampleInterval        time.Duration
 	AT                    *vasinstruments.AeroTraktype
@@ -56,11 +55,11 @@ func SetupMeasurements(d *vasdatabase.DBtype) *Measuretype {
 	}
 	i64, _ := strconv.ParseInt(fyne.CurrentApp().Preferences().StringWithFallback("ATdelay", "200"), 10, 64)
 	g.AT.Defdelay = i64
-	g.Datapoints = fyne.CurrentApp().Preferences().IntWithFallback("datapoints", 10)
 	g.countunits = int32(fyne.CurrentApp().Preferences().IntWithFallback("countunits", 1))
 	g.averagepoints = fyne.CurrentApp().Preferences().IntWithFallback("averagepoints", 30)
+	g.SampleInterval = time.Duration(fyne.CurrentApp().Preferences().IntWithFallback("sampleinterval", 10)) * time.Millisecond
 	g.synchronizedmeasuring = fyne.CurrentApp().Preferences().BoolWithFallback("synchronizedmeasuring", true)
-	g.Autostartmeasuring = fyne.CurrentApp().Preferences().BoolWithFallback("autostartmeasuring", true)
+	g.Autostartmeasuring = fyne.CurrentApp().Preferences().BoolWithFallback("autostartmeasuring", false)
 	return g
 }
 func (g *Measuretype) Getoldmeasurement() error {

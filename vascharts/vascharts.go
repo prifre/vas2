@@ -71,7 +71,7 @@ var charts []*LineChart
 func NewCharts() []*LineChart {
 	// This initializes your 8 charts automatically at startup
 	// and keeps their data in memory.
-	datapoints := fyne.CurrentApp().Preferences().IntWithFallback("datapoints", 10)
+	datapoints := fyne.CurrentApp().Preferences().IntWithFallback("datapoints", 100)
 
 	chartnum := 8
 	charts = make([]*LineChart, chartnum)
