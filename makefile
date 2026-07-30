@@ -19,6 +19,7 @@ build-local:
 	CGO_ENABLED=1 GOOS=windows GOARCH=amd64 CC=x86_64-w64-mingw32-gcc go build -o $(BUILD_DIR_WIN)/$(BINARY_NAME).exe .
 
 # 2. Skicka till GitHub, vänta på Actions-bygget och hämta Mac-binären
+# 2. Skicka till GitHub, vänta på Actions-bygget och hämta Mac-binären
 .PHONY: fetch-mac
 fetch-mac: build-local
 	@echo "Pushar till GitHub och väntar på Mac-bygget..."
@@ -28,9 +29,8 @@ fetch-mac: build-local
 	@echo "Väntar på att GitHub Actions ska bli klar..."
 	@gh run watch $$(gh run list --limit 1 --json databaseId -q '.[0].databaseId')
 	@echo "Hämtar Mac-artifact från GitHub..."
-	@gh run download --name vas2-macOS --dir $(BUILD_DIR_MAC) || gh run download --dir $(BUILD_DIR_MAC)
-	@mv $(BUILD_DIR_MAC)/* $(BUILD_DIR_MAC)/$(BINARY_NAME)_mac 2>/dev/null || true
-
+	@gh run download --name vas-macOS --dir $(BUILD_DIR_MAC)
+	
 # 3. Kopiera readme och packa alla tre plattformar till public_html
 .PHONY: pack
 pack: fetch-mac
