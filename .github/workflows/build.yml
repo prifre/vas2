@@ -5,37 +5,46 @@ on:
     branches: [ "master", "main" ]
 
 jobs:
-# JOBB 1: macOS
+  # JOBB 1: macOS (Din gamla mall, uppdaterad för PATH)
   build-mac:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: 'stable'
 
-      - name: Build macOS Release
-        uses: fyne-io/action-fyne@v1
-        with:
-          os: 'darwin'
+      - name: Install Fyne CLI
+        run: go install fyne.io/fyne/v2/cmd/fyne@latest
+
+      - name: Build macOS App
+        run: |
+          $(go env GOPATH)/bin/fyne package -os darwin
+
+      - name: Pack to Zip
+        run: |
+          zip -r vas_mac.zip *.app
 
       - name: Upload macOS Artifact
         uses: actions/upload-artifact@v4
         with:
           name: vas-macOS
-          path: '*.app'
-          
+          path: vas_mac.zip
+
+  # JOBB 2: Android (Nytt jobb tillagt)
   build-android:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: 'stable'
 
       - name: Install Java
         uses: actions/setup-java@v4
@@ -43,7 +52,7 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Setup Android SDK & NDK
+      - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
       - name: Install Fyne CLI
@@ -51,7 +60,7 @@ jobs:
 
       - name: Build Android APK
         run: |
-          fyne package -os android -appID com.prifre.vas2
+          $(go env GOPATH)/bin/fyne package -os android -appID com.prifre.vas2
 
       - name: Upload Android Artifact
         uses: actions/upload-artifact@v4
