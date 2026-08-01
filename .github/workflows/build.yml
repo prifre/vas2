@@ -8,6 +8,8 @@ jobs:
   # JOBB 1: macOS
   build-mac:
     runs-on: macos-latest
+    env:
+      CGO_ENABLED: 1
     steps:
       - uses: actions/checkout@v4
 
@@ -17,19 +19,18 @@ jobs:
           go-version: '1.22'
 
       - name: Install Fyne CLI
-        run: CGO_ENABLED=1 go install fyne.io/fyne/v2/cmd/fyne@latest
+        run: go install fyne.io/fyne/v2/cmd/fyne@latest
 
       - name: Build macOS Release
         run: |
-          fyne package -os darwin
+          $(go env GOPATH)/bin/fyne package -os darwin
 
       - name: Upload macOS Artifact
         uses: actions/upload-artifact@v4
         with:
           name: vas-macOS
-          path: '*.app'
-
-  # JOBB 2: Android
+          path: '*.app'  # JOBB 2: Android
+          
   build-android:
     runs-on: ubuntu-latest
     steps:
