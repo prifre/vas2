@@ -5,7 +5,7 @@ on:
     branches: [ "master", "main" ]
 
 jobs:
-  # JOBB 1: macOS
+# JOBB 1: macOS
   build-mac:
     runs-on: macos-latest
     steps:
@@ -16,23 +16,17 @@ jobs:
         with:
           go-version: '1.22'
 
-      - name: Install Fyne CLI
-        env:
-          CGO_ENABLED: 1
-        run: go install fyne.io/fyne/v2/cmd/fyne@latest
-
       - name: Build macOS Release
-        env:
-          CGO_ENABLED: 1
-        run: |
-          $(go env GOPATH)/bin/fyne package -os darwin
+        uses: fyne-io/action-fyne@v1
+        with:
+          os: 'darwin'
 
       - name: Upload macOS Artifact
         uses: actions/upload-artifact@v4
         with:
           name: vas-macOS
           path: '*.app'
-
+          
   build-android:
     runs-on: ubuntu-latest
     steps:

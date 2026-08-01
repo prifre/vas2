@@ -65,15 +65,28 @@ func SetupWindow(w fyne.Window) {
 }
 
 func SetupFiles() {
-	documentPath := fyne.CurrentApp().Preferences().StringWithFallback("documentpath", GetHomeDir())
+	app := fyne.CurrentApp()
+	prefs := app.Preferences()
+
+	// 1. Hämta Fynes skrivbara och säkra lagringsmapp för appen
+	// På Android pekar detta på: /data/user/0/com.prifre.vas2/files
+	// På Linux/Windows pekar det på appens standard datamapp.
+	appStorageDir := app.Storage().RootURI().Path()
+
+	// 2. Hämta sparad sökväg. Om den inte finns, använd appStorageDir (eller GetHomeDir för desktop)
+	documentPath := prefs.StringWithFallback("documentpath", appStorageDir)
+
+	// Om sökvägen av någon anledning skulle vara tom, fall tillbaka på appStorageDir
 	if documentPath == "" {
-		documentPath = GetHomeDir()
+		documentPath = appStorageDir
 	}
 
 	homeDir := GetHomeDir()
+	if homeDir == "" {
+		homeDir = appStorageDir
+	}
 
-	// Spara inställningar och sökvägar med filepath.Join
-	prefs := fyne.CurrentApp().Preferences()
+	// 3. Spara inställningar och sökvägar med filepath.Join
 	prefs.SetString("documentpath", documentPath)
 	prefs.SetString("homedir", homeDir)
 	prefs.SetString("dbfilename", filepath.Join(documentPath, "vasdatabase.db"))
