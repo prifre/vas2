@@ -1,10 +1,14 @@
 package ui
 
 import (
+	"bytes"
 	"fmt"
+	"image"
 	"image/color"
+	"image/png"
 	"strconv"
 	"time"
+	"vas2/general"
 	"vas2/vascharts"
 	"vas2/vasinstruments"
 
@@ -44,14 +48,14 @@ func GetStrokeColor(c int) color.Color {
 }
 func DoSettings(parentWindow fyne.Window) error {
 	var settingsDialog dialog.Dialog
-	var pruningoptions = []string{"Save every 5 seconds", "Save every 10 seconds", "Save every minute"}
+	var pruningoptions = []string{"Save 12/min", "Save 6/min", "Save 1/min"}
 	var countunitsoptions = []string{"Δ #", "Δ #/m³", "Δ #/ft³"}
 	prefs := fyne.CurrentApp().Preferences()
 
 	// Instrument-etiketter
-	ins1 := canvas.NewText("AeroTrak: "+prefs.StringWithFallback("AeroTrak", ""), colornames.White)
-	ins2 := canvas.NewText("DustTrak: "+prefs.StringWithFallback("DustTrak", ""), colornames.White)
-	ins3 := canvas.NewText("PTrak: "+prefs.StringWithFallback("PTrak", ""), colornames.White)
+	ATSettings := canvas.NewText(prefs.StringWithFallback("AeroTrak", ""), colornames.White)
+	DTSettings := canvas.NewText(prefs.StringWithFallback("DustTrak", ""), colornames.White)
+	PTSettings := canvas.NewText(prefs.StringWithFallback("PTrak", ""), colornames.White)
 
 	pruninglabel := canvas.NewText("Pruning:", colornames.White)
 	pruningpopup := widget.NewSelect(pruningoptions, func(value string) {})
@@ -70,13 +74,13 @@ func DoSettings(parentWindow fyne.Window) error {
 		countunitspopup.SetSelectedIndex(0)
 	}
 
-	chkSimulateAeroTrak := widget.NewCheck("Simulate AeroTrak", func(value bool) {})
+	chkSimulateAeroTrak := widget.NewCheck("AeroTrak", func(value bool) {})
 	chkSimulateAeroTrak.SetChecked(prefs.BoolWithFallback("SimulateAeroTrak", false))
 
-	chkSimulateDustTrak := widget.NewCheck("Simulate DustTrak", func(value bool) {})
+	chkSimulateDustTrak := widget.NewCheck("DustTrak", func(value bool) {})
 	chkSimulateDustTrak.SetChecked(prefs.BoolWithFallback("SimulateDustTrak", false))
 
-	chkSimulatePTrak := widget.NewCheck("Simulate PTrak", func(value bool) {})
+	chkSimulatePTrak := widget.NewCheck("PTrak", func(value bool) {})
 	chkSimulatePTrak.SetChecked(prefs.BoolWithFallback("SimulatePTrak", false))
 
 	chksync := widget.NewCheck("Synchronized measuring", func(value bool) {})
@@ -88,37 +92,43 @@ func DoSettings(parentWindow fyne.Window) error {
 	chkautostart := widget.NewCheck("Autostart measuring", func(value bool) {})
 	chkautostart.SetChecked(prefs.BoolWithFallback("autostartmeasuring", false))
 
-	// Färgväljare (Använder nu parentWindow)
-	r1 := canvas.NewRectangle(GetStrokeColor(2))
-	b1 := widget.NewButton("AeroTrak line color:", func() {
+	// Skapa knappen med ikon direkt
+	var ATColButton, DTColButton, PTColButton *widget.Button
+	var currentColor2 color.Color = GetStrokeColor(2) // Startfärg för AeroTrak
+	ATColButton = widget.NewButtonWithIcon("AeroTrak", createColorIcon(currentColor2), func() {
 		picker := dialog.NewColorPicker("AeroTrak", "Line Color", func(c color.Color) {
-			r1.FillColor = c
-			r1.Refresh()
+			// 1. Spara/använd den nya färgen i din applikation
+			currentColor2 = c
+
+			// 2. Uppdatera ikonens färg på knappen
+			ATColButton.SetIcon(createColorIcon(c))
 		}, parentWindow)
 		picker.Advanced = true
 		picker.Show()
 	})
-
-	r2 := canvas.NewRectangle(GetStrokeColor(1))
-	b2 := widget.NewButton("DustTrak line color:", func() {
+	var currentColor1 color.Color = GetStrokeColor(1) // Startfärg för DustTrak
+	DTColButton = widget.NewButtonWithIcon("DustTrak", createColorIcon(currentColor1), func() {
 		picker := dialog.NewColorPicker("DustTrak", "Line Color", func(c color.Color) {
-			r2.FillColor = c
-			r2.Refresh()
+			// 1. Spara/använd den nya färgen i din applikation
+			currentColor1 = c
+
+			// 2. Uppdatera ikonens färg på knappen
+			DTColButton.SetIcon(createColorIcon(c))
 		}, parentWindow)
 		picker.Advanced = true
 		picker.Show()
 	})
-
-	r3 := canvas.NewRectangle(GetStrokeColor(0))
-	b3 := widget.NewButton("PTrak line color:", func() {
-		picker := dialog.NewColorPicker("PTrak", "Line Color", func(c color.Color) {
-			r3.FillColor = c
-			r3.Refresh()
+	var currentColor0 color.Color = GetStrokeColor(0) // Startfärg för PTrak
+	PTColButton = widget.NewButtonWithIcon("PTrak   ", createColorIcon(currentColor0), func() {
+		picker := dialog.NewColorPicker("PTrak   ", "Line Color", func(c color.Color) {
+			// 1. Spara/använd den nya färgen i din applikation
+			currentColor0 = c
+			// 2. Uppdatera ikonens färg på knappen
+			PTColButton.SetIcon(createColorIcon(c))
 		}, parentWindow)
 		picker.Advanced = true
 		picker.Show()
 	})
-
 	// DATAPOINTSMAX
 	optionsshow := []string{"2", "5", "10", "20", "50", "100"}
 	sparatshow := prefs.IntWithFallback("datapoints", 100)
@@ -134,7 +144,7 @@ func DoSettings(parentWindow fyne.Window) error {
 	if selectshow.Selected == "" {
 		selectshow.SetSelected("10")
 	}
-	labelshow := widget.NewLabel("Datapoints to show: ")
+	labelshow := widget.NewLabel("Datapoints: ")
 
 	// AVERAGEPOINTS
 	optionsav := []string{"1", "2", "5", "10", "20", "50", "100"}
@@ -146,7 +156,7 @@ func DoSettings(parentWindow fyne.Window) error {
 		}
 	})
 	selectav.SetSelected(strconv.Itoa(sparatav))
-	labelav := widget.NewLabel("Averaged datapoints: ")
+	labelav := widget.NewLabel("Avg.datapoints: ")
 
 	// SAMPLE INTERVAL
 	optionssa := []string{"1ms", "10ms", "50ms", "100ms", "500ms", "1000ms", "2000ms", "5000ms"}
@@ -170,7 +180,7 @@ func DoSettings(parentWindow fyne.Window) error {
 	if selectsa.Selected == "" {
 		selectsa.SetSelected("1000ms")
 	}
-	labelsa := widget.NewLabel("Sample Interval: ")
+	labelsa := widget.NewLabel("Interval: ")
 	containersa := container.NewHBox(labelsa, selectsa)
 
 	documentpath := widget.NewEntry()
@@ -218,14 +228,14 @@ func DoSettings(parentWindow fyne.Window) error {
 
 		prefs.SetString("documentpath", documentpath.Text)
 
-		SetStrokeColor(0, r3.FillColor)
-		SetStrokeColor(1, r2.FillColor)
-		SetStrokeColor(2, r1.FillColor)
-		SetStrokeColor(3, r1.FillColor)
-		SetStrokeColor(4, r1.FillColor)
-		SetStrokeColor(5, r1.FillColor)
-		SetStrokeColor(6, r1.FillColor)
-		SetStrokeColor(7, r1.FillColor)
+		SetStrokeColor(0, currentColor0)
+		SetStrokeColor(1, currentColor1)
+		SetStrokeColor(2, currentColor2)
+		SetStrokeColor(3, currentColor2)
+		SetStrokeColor(4, currentColor2)
+		SetStrokeColor(5, currentColor2)
+		SetStrokeColor(6, currentColor2)
+		SetStrokeColor(7, currentColor2)
 
 		if settingsDialog != nil {
 			settingsDialog.Hide()
@@ -236,17 +246,19 @@ func DoSettings(parentWindow fyne.Window) error {
 		saveAll()
 	})
 
-	instgroup := container.NewGridWithColumns(2, ins1, chkSimulateAeroTrak, ins2, chkSimulateDustTrak, ins3, chkSimulatePTrak)
-	colgroup := container.NewGridWithColumns(2, b1, r1, b2, r2, b3, r3)
-	topgroup := container.NewGridWithColumns(2, instgroup, colgroup)
+	settingsGroup := container.NewGridWithColumns(2, ATColButton, ATSettings, DTColButton, DTSettings, PTColButton, PTSettings)
+	simGroup := widget.NewCard("", "Simulate:", container.NewGridWithColumns(1, chkSimulateAeroTrak, chkSimulateDustTrak, chkSimulatePTrak))
+	//	colgroup := container.NewGridWithColumns(2, b1, r1, b2, r2, b3, r3)
+	//	colgroup := widget.NewCard("", "", container.NewGridWithColumns(2, ATColButton, DTColButton, PTColButton))
+	topgroup := container.NewGridWithColumns(2, settingsGroup, simGroup)
 
 	containershow := container.NewBorder(nil, nil, labelshow, nil, selectshow)
 	containerav := container.NewBorder(nil, nil, labelav, nil, selectav)
 	pruninggroup := container.NewBorder(nil, nil, pruninglabel, nil, pruningpopup)
 	cugroup := container.NewBorder(nil, nil, countunitslabel, nil, countunitspopup)
-	popupgroup := container.NewVBox(containershow, containerav, containersa, pruninggroup)
+	popupgroup := container.NewVBox(containershow, containerav, containersa, pruninggroup, cugroup)
 
-	chkgroup := container.NewVBox(chksync, chkautostart, chkmydebug, cugroup)
+	chkgroup := container.NewVBox(chksync, chkautostart, chkmydebug)
 	group2 := container.NewHBox(popupgroup, chkgroup)
 	pathgroup := container.NewGridWithColumns(2, documentpath, documentpathbutton)
 
@@ -261,18 +273,26 @@ func DoSettings(parentWindow fyne.Window) error {
 }
 func DoManualSettings(parentWindow fyne.Window) error {
 	prefs := fyne.CurrentApp().Preferences()
+	app := fyne.CurrentApp()
+	documentpath := widget.NewEntry()
+	documentpath.SetText(prefs.StringWithFallback("documentpath", ""))
 
 	f1e1 := widget.NewEntry()
 	f1e2 := widget.NewEntry()
 	f1e3 := widget.NewEntry()
+	f1edoc := widget.NewEntry()
 
 	f1e1.SetText(prefs.String("AeroTrak"))
 	f1e2.SetText(prefs.String("DustTrak"))
 	f1e3.SetText(prefs.String("PTrak"))
+	f1edoc.SetText(prefs.String("documentpath"))
 
 	f1b1 := widget.NewButton("Set Default", func() { f1e1.SetText("192.168.0.130:502") })
 	f1b2 := widget.NewButton("Set Default", func() { f1e2.SetText("192.168.0.131:3602") })
 	f1b3 := widget.NewButton("Set Default", func() { f1e3.SetText("COM3") })
+	f1bdoc := widget.NewButton("Set Default", func() {
+		f1edoc.SetText(app.Storage().RootURI().Path())
+	})
 
 	var manualDialog dialog.Dialog
 
@@ -314,12 +334,23 @@ func DoManualSettings(parentWindow fyne.Window) error {
 		f1e1.SetText("")
 		f1e2.SetText("")
 		f1e3.SetText("")
+		f1edoc.SetText("")
+	})
+	f2bdoc := widget.NewButton("Info", func() {
+		// 1. Hämta alla serieportar i datorn
+		msg := "RootURI: " + app.Storage().RootURI().Path() + "\n"
+		msg += "HomeDir: " + general.GetHomeDir() + "\n"
+		msg += "Preferences: " + prefs.StringWithFallback("documentpath", "") + "\n"
+
+		// 2. Visa den dynamiska listan i dialogrutan
+		dialog.ShowInformation("Defaults:", msg, parentWindow)
 	})
 
 	okbutton := widget.NewButton("OK", func() {
 		prefs.SetString("AeroTrak", f1e1.Text)
 		prefs.SetString("DustTrak", f1e2.Text)
 		prefs.SetString("PTrak", f1e3.Text)
+		prefs.SetString("documentpath", f1edoc.Text)
 
 		if manualDialog != nil {
 			manualDialog.Hide()
@@ -337,6 +368,7 @@ func DoManualSettings(parentWindow fyne.Window) error {
 		widget.NewFormItem("AeroTrak:", container.NewBorder(nil, nil, nil, container.NewHBox(f1b1, f2b1), f1e1)),
 		widget.NewFormItem("DustTrak:", container.NewBorder(nil, nil, nil, container.NewHBox(f1b2, f2b2), f1e2)),
 		widget.NewFormItem("PTrak:", container.NewBorder(nil, nil, nil, container.NewHBox(f1b3, f2b3), f1e3)),
+		widget.NewFormItem("Document Path:", container.NewBorder(nil, nil, nil, container.NewHBox(f1bdoc, f2bdoc), f1edoc)),
 	)
 
 	btnGroup := container.NewGridWithColumns(3, clearall, cancelbutton, okbutton)
@@ -387,4 +419,17 @@ func DoAeroTrakSettings(parentWindow fyne.Window) error {
 	aeroDialog.Show()
 
 	return nil
+}
+func createColorIcon(c color.Color) fyne.Resource {
+	img := image.NewRGBA(image.Rect(0, 0, 16, 16))
+	for x := 0; x < 16; x++ {
+		for y := 0; y < 16; y++ {
+			img.Set(x, y, c)
+		}
+	}
+
+	var buf bytes.Buffer
+	_ = png.Encode(&buf, img)
+
+	return fyne.NewStaticResource("color_icon.png", buf.Bytes())
 }
