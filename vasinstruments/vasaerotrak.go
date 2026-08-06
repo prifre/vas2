@@ -82,7 +82,7 @@ func (at *AeroTraktype) GetAeroTrakdata() ([6]int32, error) {
 }
 func (at *AeroTraktype) Setup() error {
 	var err error
-	var cmd string = fyne.CurrentApp().Preferences().StringWithFallback("aerotrakcmd", at.setupaerotrakcode())
+	var cmd string = fyne.CurrentApp().Preferences().StringWithFallback("aerotrakcmd", at.Setupaerotrakcode())
 	//findsection "setup"
 	// err = at.modbusAeroTrakopen()
 	// if err != nil {
@@ -103,7 +103,7 @@ func (at *AeroTraktype) Setup() error {
 func (at *AeroTraktype) AeroTrakstop() error {
 	var err error
 	// getproglines "stop"
-	var cmd string = fyne.CurrentApp().Preferences().StringWithFallback("aerotrakcmd", at.setupaerotrakcode())
+	var cmd string = fyne.CurrentApp().Preferences().StringWithFallback("aerotrakcmd", at.Setupaerotrakcode())
 	//findsection "stop"
 	if !strings.Contains(cmd, "stop:") {
 		log.Print("Bad AeroTrak command program, 'stop:' missing")
@@ -120,7 +120,7 @@ func (at *AeroTraktype) AeroTrakstop() error {
 }
 func (at *AeroTraktype) AeroTrakstart() error {
 	var err error
-	var cmd string = fyne.CurrentApp().Preferences().StringWithFallback("aerotrakcmd", at.setupaerotrakcode())
+	var cmd string = fyne.CurrentApp().Preferences().StringWithFallback("aerotrakcmd", at.Setupaerotrakcode())
 	//findsection "start"
 	if !strings.Contains(cmd, "restart:") {
 		log.Print("Bad AeroTrak command program, 'restart:' missing")
@@ -224,7 +224,7 @@ func (at *AeroTraktype) aerotrakcode(prog string) error {
 			info, _ := ModbusAeroTrakgetinfo(at.AeroTrakport)
 			log.Println(info)
 		case "SHOWRECIPES":
-			results, _ := at.getAeroTrakrecipes()
+			results, _ := at.GetAeroTrakrecipes()
 			log.Printf("RECIPES: \n %v", results)
 		case "SHOWLOCATIONS":
 			results, _ := at.getAeroTraklocations()

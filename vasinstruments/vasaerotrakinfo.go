@@ -138,7 +138,7 @@ func ModbusAeroTrakgetinfo(port string) (string, error) {
 
 	return reply, nil
 }
-func (at *AeroTraktype) getAeroTrakrecipes() ([]string, error) {
+func (at *AeroTraktype) GetAeroTrakrecipes() ([]string, error) {
 	var err error
 	var r []string
 	var results []byte

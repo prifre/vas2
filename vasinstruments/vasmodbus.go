@@ -10,7 +10,7 @@ import (
 	"github.com/goburrow/modbus"
 )
 
-func (at *AeroTraktype) setupaerotrakcode() string {
+func (at *AeroTraktype) Setupaerotrakcode() string {
 	return `setup:
 SHOWCMD 0 // special to show or hide command in text window 1=yes, 0=no
 SHOWDATA 1 // special to show or hide measurement data in text window 1=yes, 0=no
@@ -59,9 +59,9 @@ AEROTRAKSTART
 
 // Hjälpfunktion för att säkert plocka ut en sektion ur skriptsträngen
 func (at *AeroTraktype) getScriptSection(section string) string {
-	cmd := at.setupaerotrakcode()
+	cmd := at.Setupaerotrakcode()
 	if fyne.CurrentApp() != nil {
-		cmd = fyne.CurrentApp().Preferences().StringWithFallback("aerotrakcmd", at.setupaerotrakcode())
+		cmd = fyne.CurrentApp().Preferences().StringWithFallback("aerotrakcmd", at.Setupaerotrakcode())
 	}
 
 	if !strings.Contains(cmd, section) {

@@ -107,19 +107,6 @@ func (g *Measuretype) StartMeasurement() {
 
 	// 2. Multiplicera heltalet med time.Millisecond för att få en time.Duration
 	g.SampleInterval = time.Duration(ms) * time.Millisecond
-
-	g.AT.SimulateAeroTrak = fyne.CurrentApp().Preferences().Bool("SimulateAeroTrak")
-	g.DT.SimulateDustTrak = fyne.CurrentApp().Preferences().Bool("SimulateDustTrak")
-	g.PT.SimulatePTrak = fyne.CurrentApp().Preferences().Bool("SimulatePTrak")
-
-	g.AT.AeroTrakport = fyne.CurrentApp().Preferences().StringWithFallback("AeroTrak", "")
-	g.DT.DustTrakport = fyne.CurrentApp().Preferences().StringWithFallback("DustTrak", "")
-	g.PT.PTrakport = fyne.CurrentApp().Preferences().StringWithFallback("PTrak", "")
-
-	g.AT.AeroTrakrunning = (g.AT.SimulateAeroTrak || (g.AT.AeroTrakport > ""))
-	g.PT.PTrakrunning = (g.PT.SimulatePTrak || (g.PT.PTrakport > ""))
-	g.DT.DustTrakrunning = (g.DT.SimulateDustTrak || (g.DT.DustTrakport > ""))
-
 	if g.D == nil {
 		log.Println("Error: Database object (g.D) is nil!")
 		return
@@ -149,25 +136,45 @@ func (g *Measuretype) StartMeasurement() {
 		if len(g.D.Mname) > 26 {
 			g.D.Mname = g.D.Mname[:26]
 		}
-
-		if g.AT.SimulateAeroTrak || g.DT.SimulateDustTrak || g.PT.SimulatePTrak {
-			g.D.Note = "Simulated measurement"
-			if g.AT.SimulateAeroTrak {
-				g.D.Note += " AeroTrak"
-			}
-			if g.DT.SimulateDustTrak {
-				g.D.Note += " DustTrak"
-			}
-			if g.PT.SimulatePTrak {
-				g.D.Note += " PTrak"
-			}
-		}
-
 		g.D.Mdata = []int32{-1, -1, -1, -1, -1, -1, -1, -1}
 		err = g.D.Addmeasurement()
 		if err != nil {
 			log.Println("#1 StartMeasurement - Problems adding Main measurement: ", err.Error())
 		}
+	}
+
+	g.AT.SimulateAeroTrak = fyne.CurrentApp().Preferences().Bool("SimulateAeroTrak")
+	g.AT.AeroTrakport = fyne.CurrentApp().Preferences().StringWithFallback("AeroTrak", "")
+	g.AT.AeroTrakrunning = (g.AT.SimulateAeroTrak || (g.AT.AeroTrakport > ""))
+
+	g.DT.SimulateDustTrak = fyne.CurrentApp().Preferences().Bool("SimulateDustTrak")
+	g.DT.DustTrakport = fyne.CurrentApp().Preferences().StringWithFallback("DustTrak", "")
+	g.DT.DustTrakrunning = (g.DT.SimulateDustTrak || (g.DT.DustTrakport > ""))
+
+	g.PT.SimulatePTrak = fyne.CurrentApp().Preferences().Bool("SimulatePTrak")
+	g.PT.PTrakport = fyne.CurrentApp().Preferences().StringWithFallback("PTrak", "")
+	g.PT.PTrakrunning = (g.PT.SimulatePTrak || (g.PT.PTrakport > ""))
+
+	if g.AT.SimulateAeroTrak || g.DT.SimulateDustTrak || g.PT.SimulatePTrak {
+		g.D.Note = "Simulated measurement"
+		if g.AT.SimulateAeroTrak {
+			g.D.Note += " AeroTrak"
+		}
+		if g.DT.SimulateDustTrak {
+			g.D.Note += " DustTrak"
+		}
+		if g.PT.SimulatePTrak {
+			g.D.Note += " PTrak"
+		}
+	}
+	if g.AT.AeroTrakport > "" && !g.AT.SimulateAeroTrak {
+		g.AT.AeroTrakstart()
+	}
+	if g.DT.DustTrakport > "" && !g.DT.SimulateDustTrak {
+		g.DT.DustTrakstart()
+	}
+	if g.PT.PTrakport > "" && !g.PT.SimulatePTrak {
+		g.PT.PTrakstart()
 	}
 
 	log.Printf("Measurement '%v' (%v) started at %v.", g.D.Mname, g.D.Nanostamp, g.D.Tstamp)

@@ -58,8 +58,9 @@ func BuildFileMenu(window fyne.Window) *fyne.Menu {
 			vasftp.DoFTPSettings(window)
 		}),
 		fyne.NewMenuItem("Settings...", func() { DoSettings(window) }),
-		fyne.NewMenuItem("Manual Settings...", func() { DoManualSettings(window) }),
-		fyne.NewMenuItem("Special Aerotrak Settings...", func() { DoAeroTrakSettings(window) }),
+		fyne.NewMenuItem("Aerotrak Settings...", func() { DoAeroTrakSettings(window) }),
+		fyne.NewMenuItem("DustTrak Settings...", func() { DoDustTrakSettings(window) }),
+		fyne.NewMenuItem("PTrak Settings...", func() { DoPTrakSettings(window) }),
 		fyne.NewMenuItemSeparator(),
 		itemQuit, // Lägg till objektet med genvägen
 	)

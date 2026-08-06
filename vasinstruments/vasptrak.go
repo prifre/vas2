@@ -115,3 +115,7 @@ func (pt *PTraktype) PTrakstop() {
 		pt.PTrakconnection = nil
 	}
 }
+func (pt *PTraktype) PTrakstart() {
+	v := pt.GetPTrakdata()
+	log.Printf("PTrakstart: initial value: %d", v)
+}

@@ -22,3 +22,10 @@ vas_mac/
 
 # VS Code-inställningar (valfritt)
 .vscode/
+*.apk
+*.exe
+vas2_linux/
+vas2_windows/
+vas2_android/
+vas2_darwin/
+public_html/

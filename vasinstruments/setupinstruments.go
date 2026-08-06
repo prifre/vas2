@@ -61,11 +61,11 @@ func GetallSerialPorts() string {
 	ports, err := bugserial.GetPortsList()
 	var msg string
 	if err != nil || len(ports) == 0 {
-		msg = "No serial ports found on this system."
+		msg = ""
 	} else {
-		msg = "Available Serial Ports:\n\n"
+		msg = ""
 		for _, p := range ports {
-			msg += fmt.Sprintf("• %s\n", p)
+			msg += fmt.Sprintf("%s\n", p)
 		}
 	}
 	return msg

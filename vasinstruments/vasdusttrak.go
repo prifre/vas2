@@ -181,6 +181,22 @@ func (dt *DustTraktype) DustTrakstop() error {
 	dt.closeConn()
 	return err
 }
+func (dt *DustTraktype) DustTrakstart() error {
+	if dt.DustTrakconn == nil {
+		if err := dt.tcpdusttrakopen(); err != nil {
+			return err
+		}
+	}
+
+	reply, err := dt.tcpcommand("MSTART")
+	if err != nil || reply != "OK" {
+		log.Println("#1 DustTrakstop - retry MSTOP")
+		_, err = dt.tcpcommand("MSTOP")
+	}
+
+	dt.closeConn()
+	return err
+}
 
 func (dt *DustTraktype) GetDustTrakinfo(port string) string {
 	dt.DustTrakport = port
