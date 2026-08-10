@@ -1,5 +1,5 @@
 # Variabler
-VERSION=2.0.6
+VERSION=2.0.7
 BINARY_NAME=vas2
 BUILD_DIR_LINUX=vas2_linux
 BUILD_DIR_WIN=vas2_windows

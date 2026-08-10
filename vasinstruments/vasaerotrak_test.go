@@ -29,7 +29,7 @@ func TestAeroTrak(t *testing.T) {
 	fmt.Println("AeroTrak STOP done")
 
 	fmt.Println("AeroTrak SETUP")
-	_ = at.Setup()
+	_ = at.AeroTrakSetup()
 
 	fmt.Println("AeroTrak START")
 	at.modbuswrite(41001-40001, []uint16{6}) // AeroTrak START
@@ -111,7 +111,7 @@ func TestAeroTrakSTART(t *testing.T) {
 	fmt.Println("at.modbusAeroTrakopen done")
 
 	fmt.Println("AeroTrak setup")
-	_ = at.Setup()
+	_ = at.AeroTrakSetup()
 	fmt.Println("AeroTrak SETUP done")
 
 	fmt.Println("AeroTrak START")
@@ -141,7 +141,7 @@ func TestAeroTrakValues(t *testing.T) {
 		t.FailNow()
 	}
 
-	_ = at.Setup()
+	_ = at.AeroTrakSetup()
 	at.modbuswrite(41001-40001, []uint16{6}) // AeroTrak START
 
 	results, _ := at.modbusAeroTrakReadHoldingRegisters(41002-40001, 1)
@@ -176,7 +176,7 @@ func TestAeroTrakMethod(t *testing.T) {
 	}
 
 	at.modbuswrite(41001-40001, []uint16{7}) // AeroTrak STOP
-	_ = at.Setup()
+	_ = at.AeroTrakSetup()
 
 	info, _ := ModbusAeroTrakgetinfo(theaerotrakport)
 	log.Println(info)

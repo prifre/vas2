@@ -5,12 +5,15 @@ TCP routines to read from TSI DustTrak
 */
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"net"
 	"strconv"
 	"strings"
 	"time"
+
+	"fyne.io/fyne/v2"
 )
 
 type DustTraktype struct {
@@ -92,18 +95,19 @@ func (dt *DustTraktype) closeConn() {
 	}
 }
 
-func (dt *DustTraktype) GetDustTrakdata() int32 {
+func (dt *DustTraktype) GetDustTrakdata() (int32, error) {
 	var reply string
 	var samples []int32
 	var lastmeasurementnumber int
 	var err error
-
+	var pref = fyne.CurrentApp().Preferences()
+	dt.DustTrakport = pref.StringWithFallback("DustTrak", "")
 	dt.DustTrakrunning = false
 
 	if dt.DustTrakconn == nil {
 		if err = dt.tcpdusttrakopen(); err != nil {
 			log.Println("#1 GetDustTrakdata: could not open port:", err.Error())
-			return -1
+			return -1, err
 		}
 	}
 
@@ -125,7 +129,7 @@ func (dt *DustTraktype) GetDustTrakdata() int32 {
 			if err != nil {
 				log.Println("#3 GetDustTrakdata could not start measuring:", err)
 				dt.closeConn()
-				return -1
+				return -1, err
 			}
 			time.Sleep(500 * time.Millisecond)
 		}
@@ -159,13 +163,15 @@ func (dt *DustTraktype) GetDustTrakdata() int32 {
 	dt.DustTrakrunning = true
 
 	if len(samples) > 0 {
-		return samples[0]
+		return samples[0], nil
 	}
 
-	return -1
+	return -1, errors.New("no data available")
 }
 
 func (dt *DustTraktype) DustTrakstop() error {
+	var pref = fyne.CurrentApp().Preferences()
+	dt.DustTrakport = pref.StringWithFallback("DustTrak", "")
 	if dt.DustTrakconn == nil {
 		if err := dt.tcpdusttrakopen(); err != nil {
 			return err
@@ -181,7 +187,10 @@ func (dt *DustTraktype) DustTrakstop() error {
 	dt.closeConn()
 	return err
 }
-func (dt *DustTraktype) DustTrakstart() error {
+func (dt *DustTraktype) DustTrakStart() error {
+	var pref = fyne.CurrentApp().Preferences()
+	dt.DustTrakport = pref.StringWithFallback("DustTrak", "")
+
 	if dt.DustTrakconn == nil {
 		if err := dt.tcpdusttrakopen(); err != nil {
 			return err

@@ -1,6 +1,7 @@
 package vasinstruments
 
 import (
+	"encoding/binary"
 	"fmt"
 	"log"
 	"strings"
@@ -109,27 +110,48 @@ func (at *AeroTraktype) afterread() error {
 }
 
 func (at *AeroTraktype) modbuswrite(adr uint16, v []uint16) error {
+	var err error
+	if len(v) == 0 {
+		return nil
+	}
+
+	// Säkerställ anslutning
 	if at.AeroTrakclient == nil {
 		if err := at.modbusAeroTrakopen(); err != nil {
-			return err
+			return fmt.Errorf("modbuswrite failed to open connection: %w", err)
 		}
 	}
 
-	for i, val := range v {
-		targetAdr := adr + uint16(i)
-		_, err := at.AeroTrakclient.WriteSingleRegister(targetAdr, val)
-		if err != nil {
-			log.Printf("#modbuswrite Error adr %d (Holding %d): %v", targetAdr, targetAdr+40001, err)
-
-			if at.AeroTrakhandler != nil {
-				_ = at.AeroTrakhandler.Close()
-				at.AeroTrakhandler = nil
-			}
-			at.AeroTrakclient = nil
-			return err
+	// Om vi bara har 1 register -> WriteSingleRegister
+	// Om vi har flera register -> WriteMultipleRegisters (mycket snabbare!)
+	if len(v) == 1 {
+		_, err = at.AeroTrakclient.WriteSingleRegister(adr, v[0])
+	} else {
+		// Omvandla []uint16 till byte-slice (Modbus kräver BigEndian / 2 bytes per register)
+		payload := make([]byte, len(v)*2)
+		for i, val := range v {
+			binary.BigEndian.PutUint16(payload[i*2:], val)
 		}
+		_, err = at.AeroTrakclient.WriteMultipleRegisters(adr, uint16(len(v)), payload)
 	}
+
+	// Felhantering vid skrivfel
+	if err != nil {
+		log.Printf("#modbuswrite Error adr %d (Holding %d, len %d): %v", adr, adr+40001, len(v), err)
+		at.closeModbusConnection()
+		return err
+	}
+
 	return nil
+}
+
+// Hjälpmetod för att städa anslutningen säkert vid fel
+func (at *AeroTraktype) closeModbusConnection() {
+	if at.AeroTrakhandler != nil {
+		_ = at.AeroTrakhandler.Close()
+		at.AeroTrakhandler = nil
+	}
+	at.AeroTrakclient = nil
 }
 
 func (at *AeroTraktype) modbusAeroTrakopen() error {
@@ -139,7 +161,7 @@ func (at *AeroTraktype) modbusAeroTrakopen() error {
 
 	if at.AeroTrakport == "" {
 		log.Printf("No AeroTrak port set in preferences")
-		return fmt.Errorf("no aerotrak port set")
+		return fmt.Errorf("No AeroTrak port set")
 	}
 
 	at.AeroTrakhandler = modbus.NewTCPClientHandler(at.AeroTrakport)
@@ -163,28 +185,32 @@ func (at *AeroTraktype) modbusAeroTrakopen() error {
 }
 
 func (at *AeroTraktype) modbusAeroTrakReadHoldingRegisters(adr uint16, count uint16) ([]byte, error) {
+	// 1. Validera indata enligt Modbus-standarden (max 125 register per anrop)
+	if count == 0 || count > 125 {
+		return nil, fmt.Errorf("invalid Modbus count %d (must be 1-125)", count)
+	}
+
+	// 2. Säkerställ anslutning och skydda mot nil pointer
 	if at.AeroTrakclient == nil {
-		err := at.modbusAeroTrakopen()
-		if err != nil {
+		if err := at.modbusAeroTrakopen(); err != nil || at.AeroTrakclient == nil {
 			log.Printf("AeroTrakclient is nil and could not open: %v", err)
+			if err == nil {
+				err = fmt.Errorf("client remains nil after open attempt")
+			}
 			return nil, err
 		}
 	}
 
+	// 3. Valfri fördröjning för buss-stabilisering
 	if at.Defdelay > 0 {
 		time.Sleep(time.Duration(at.Defdelay) * time.Millisecond)
 	}
 
+	// 4. Utför läsningen
 	results, err := at.AeroTrakclient.ReadHoldingRegisters(adr, count)
 	if err != nil {
 		log.Printf("Error reading ReadHoldingRegisters (adr: %d, count: %d): %v", adr, count, err)
-
-		if at.AeroTrakhandler != nil {
-			_ = at.AeroTrakhandler.Close()
-			at.AeroTrakhandler = nil
-		}
-		at.AeroTrakclient = nil
-
+		at.closeModbusConnection() // Rensa anslutningsstatus säkert
 		return nil, err
 	}
 

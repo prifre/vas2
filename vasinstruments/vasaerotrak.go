@@ -9,6 +9,7 @@ TCP routines to handle TSI AeroTrak
 */
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -28,6 +29,7 @@ type AeroTraktype struct {
 	AeroTrakhandler   *modbus.TCPClientHandler
 	AeroTraklastin    int
 	AeroTraksetupdone bool
+	debugAeroTrak     bool
 	AeroTrakport      string
 	Defdelay          int64
 	showcmd           bool
@@ -35,54 +37,73 @@ type AeroTraktype struct {
 }
 
 func (at *AeroTraktype) GetAeroTrakdata() ([6]int32, error) {
-	// Configuration group 41082...
-	var data [6]int32 = [6]int32{-1, -1, -1, -1, -1, -1}
 	var err error
-	var results []byte
-	var lastrecordindatabase int
+	defaultData := [6]int32{-1, -1, -1, -1, -1, -1}
+
+	// 1. Säkerställ anslutning
 	if at.AeroTrakclient == nil {
-		err = at.Setup()
+		err = at.AeroTrakSetup()
 		if err != nil {
-			log.Printf("#1 AeroTrakSetup failed %v", err.Error())
-			at.AeroTrakclient = nil
-			return data, err
-		} else {
-			at.AeroTraksetupdone = true
+			log.Printf("#1 AeroTrakSetup failed: %v", err)
+			return defaultData, err
 		}
+		at.AeroTraksetupdone = true
 	}
-	results, err = at.modbusAeroTrakReadHoldingRegisters(42003-40001, 2)
-	if err != nil {
-		log.Printf("#4 Error reading last record: %v \n %v", results, err.Error())
-		return data, err
+
+	// 2. Läs senast registrerade index i databasen
+	results, err := at.modbusAeroTrakReadHoldingRegisters(42003-40001, 2)
+	if at.debugAeroTrak {
+		log.Printf("#2 GetAeroTrakdata ReadHoldingRegisters results: %v, err: %v", results, err)
 	}
-	lastrecordindatabase = int(bytestoint32(results[0:4]))
+	if err != nil || len(results) < 4 {
+		log.Printf("#4 Error reading last record: %v, err: %v", results, err)
+		return defaultData, err
+	}
+
+	lastrecordindatabase := int(bytestoint32(results[0:4]))
+
+	// 3. Om det finns ett nytt rekord -> läs ut det
 	if at.AeroTraklastin < lastrecordindatabase {
-		//read the record
 		results, err = at.modbusAeroTrakReadHoldingRegisters(42026-40001, 64)
-		if err != nil {
-			log.Printf("#5 getAeroTrakdata ReadHoldingregisters failed: %v, %v", results, err.Error())
-			return data, err
+		if err != nil || len(results) < 24 { // 6 st int32 kräver minst 24 bytes
+			log.Printf("#5 getAeroTrakdata ReadHoldingregisters failed: %v, err: %v", results, err)
+			return defaultData, err
 		}
-		for i := 0; i < 6; i = i + 1 {
-			data[i] = bytestoint32(results[i*4 : i*4+4]) // convert 4 bytes to int32
+
+		var data [6]int32
+		for i := 0; i < 6; i++ {
+			data[i] = bytestoint32(results[i*4 : i*4+4])
 		}
+
 		at.AeroTraklastin = lastrecordindatabase
 		at.afterread()
-	} else {
-		at.AeroTraklastin = 0
-		at.beforeread()
+
+		// Starta om mätaren om databasindexet blivit för högt
+		if lastrecordindatabase > 9999 {
+			if startErr := at.AeroTrakStart(); startErr != nil {
+				log.Printf("#2 GetAeroTrakData AeroTrak START! failed: %v", startErr)
+			}
+		}
+
+		return data, nil
 	}
+
+	// 4. Inget nytt data fanns
+	at.beforeread()
+
 	if lastrecordindatabase > 9999 {
-		err = at.AeroTrakstart()
-		if err != nil {
-			log.Printf("#2 GetAeroTrakData AeroTrak START! failed:  %v\n", err)
+		if startErr := at.AeroTrakStart(); startErr != nil {
+			log.Printf("#2 GetAeroTrakData AeroTrak START! failed: %v", startErr)
 		}
 	}
-	return data, err
+
+	return defaultData, nil
 }
-func (at *AeroTraktype) Setup() error {
+func (at *AeroTraktype) AeroTrakSetup() error {
 	var err error
-	var cmd string = fyne.CurrentApp().Preferences().StringWithFallback("aerotrakcmd", at.Setupaerotrakcode())
+	var pref = fyne.CurrentApp().Preferences()
+	at.AeroTrakport = pref.StringWithFallback("AeroTrak", "")
+	var cmd string = pref.StringWithFallback("aerotrakcmd", at.Setupaerotrakcode())
 	//findsection "setup"
 	// err = at.modbusAeroTrakopen()
 	// if err != nil {
@@ -91,16 +112,13 @@ func (at *AeroTraktype) Setup() error {
 	// }
 	if !strings.Contains(cmd, "setup:") {
 		log.Print("Bad AeroTrak command program, 'setup:' missing")
-		return nil
+		return errors.New("Bad AeroTrak command program, 'setup:' missing")
 	}
 	cmd = strings.TrimSpace(string(strings.Split(strings.Split(cmd, "setup:")[1], ":")[0]))
 	err = at.aerotrakcode(cmd)
-	if err != nil {
-		return err
-	}
 	return err
 }
-func (at *AeroTraktype) AeroTrakstop() error {
+func (at *AeroTraktype) AeroTrakStop() error {
 	var err error
 	// getproglines "stop"
 	var cmd string = fyne.CurrentApp().Preferences().StringWithFallback("aerotrakcmd", at.Setupaerotrakcode())
@@ -118,9 +136,11 @@ func (at *AeroTraktype) AeroTrakstop() error {
 	at.AeroTrakhandler = nil
 	return err
 }
-func (at *AeroTraktype) AeroTrakstart() error {
+func (at *AeroTraktype) AeroTrakStart() error {
 	var err error
-	var cmd string = fyne.CurrentApp().Preferences().StringWithFallback("aerotrakcmd", at.Setupaerotrakcode())
+	var pref = fyne.CurrentApp().Preferences()
+	var cmd string = pref.StringWithFallback("aerotrakcmd", at.Setupaerotrakcode())
+	at.AeroTrakport = pref.StringWithFallback("AeroTrak", "")
 	//findsection "start"
 	if !strings.Contains(cmd, "restart:") {
 		log.Print("Bad AeroTrak command program, 'restart:' missing")
@@ -173,6 +193,9 @@ func (at *AeroTraktype) aerotrakcode(prog string) error {
 		}
 
 		// 3. Exekvera kommando
+		if at.debugAeroTrak {
+			log.Printf("Executing command: %s with value: %d", cmd, val)
+		}
 		switch cmd {
 		case "AEROTRAKSTOP":
 			err = at.modbuswrite(41001-40001, []uint16{7})

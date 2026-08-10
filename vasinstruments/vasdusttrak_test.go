@@ -8,10 +8,14 @@ import (
 
 func (dt *DustTraktype) TestDustTraktest(T *testing.T) {
 	var d int32
+	var err error
 	for i := 0; i < 100; i++ {
 		for d < 0 {
 			time.Sleep(time.Second / 10)
-			d = dt.GetDustTrakdata()
+			d, err = dt.GetDustTrakdata()
+			if err != nil {
+				fmt.Println("Error getting DustTrak data:", err)
+			}
 		}
 		fmt.Println(d)
 	}

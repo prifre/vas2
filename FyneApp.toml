@@ -4,5 +4,5 @@ Website = "https://prifre.com/vas"
 Icon = "resources/vas.png"
 Name = "VAS"
 ID = "vas"
-Version = "2.0.6"
+Version = "2.0.7"
 Build = 6

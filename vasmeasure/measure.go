@@ -168,13 +168,13 @@ func (g *Measuretype) StartMeasurement() {
 		}
 	}
 	if g.AT.AeroTrakport > "" && !g.AT.SimulateAeroTrak {
-		g.AT.AeroTrakstart()
+		g.AT.AeroTrakStart()
 	}
 	if g.DT.DustTrakport > "" && !g.DT.SimulateDustTrak {
-		g.DT.DustTrakstart()
+		g.DT.DustTrakStart()
 	}
 	if g.PT.PTrakport > "" && !g.PT.SimulatePTrak {
-		g.PT.PTrakstart()
+		g.PT.PTrakStart()
 	}
 
 	log.Printf("Measurement '%v' (%v) started at %v.", g.D.Mname, g.D.Nanostamp, g.D.Tstamp)
@@ -196,7 +196,7 @@ func (g *Measuretype) StopMeasurement() {
 	// Stop AeroTrak
 	if g.AT != nil && g.AT.AeroTrakrunning && !g.AT.SimulateAeroTrak {
 		time.Sleep(500 * time.Millisecond) // Kanske räcker 500ms?
-		if err = g.AT.AeroTrakstop(); err != nil {
+		if err = g.AT.AeroTrakStop(); err != nil {
 			log.Println("#1 StopMeasurement - Problems AeroTrak stop:", err.Error())
 		}
 	}
@@ -221,6 +221,7 @@ func (g *Measuretype) StopMeasurement() {
 	}
 }
 func (g *Measuretype) GetData() bool {
+	var err error
 	if len(g.D.Mdata) != Chartnum {
 		g.D.Mdata = make([]int32, Chartnum)
 	}
@@ -235,7 +236,10 @@ func (g *Measuretype) GetData() bool {
 		if g.PT.SimulatePTrak {
 			g.D.Mdata[0] = vasinstruments.SimulatedPTrak()
 		} else {
-			g.D.Mdata[0] = g.PT.GetPTrakdata()
+			g.D.Mdata[0], err = g.PT.GetPTrakdata()
+			if err != nil {
+				log.Println("Error getting PTrak data:", err.Error())
+			}
 		}
 	}
 
@@ -244,7 +248,10 @@ func (g *Measuretype) GetData() bool {
 		if g.DT.SimulateDustTrak {
 			g.D.Mdata[1] = vasinstruments.SimulatedDustTrak()
 		} else {
-			g.D.Mdata[1] = g.DT.GetDustTrakdata()
+			g.D.Mdata[1], err = g.DT.GetDustTrakdata()
+			if err != nil {
+				log.Println("Error getting DustTrak data:", err.Error())
+			}
 		}
 	}
 

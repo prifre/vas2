@@ -203,6 +203,9 @@ func BuildHelpMenu(window fyne.Window) *fyne.Menu {
 
 func BuildTestMenu(window fyne.Window) *fyne.Menu {
 	return fyne.NewMenu("Tests",
+		fyne.NewMenuItem("Test Instruments()", func() {
+			ShowInstumentVerification(window)
+		}),
 		fyne.NewMenuItem("Test Appinfo()", func() {
 			dialog.ShowInformation("Appinfo", general.Getappinfo(), window)
 		}),
